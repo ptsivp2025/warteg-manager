@@ -29,7 +29,6 @@ export default async function TransaksiPage() {
       .from("menu_items")
       .select("*")
       .eq("warung_id", warung.id)
-      .eq("is_active", true)
       .order("category")
       .order("name"),
   ]);
