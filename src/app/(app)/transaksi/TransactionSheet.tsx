@@ -3,7 +3,7 @@
 import { Button } from "@/components/ui/Button";
 import { Sheet } from "@/components/ui/Sheet";
 import type { Customer, MenuItem, PaymentMethod } from "@/lib/types/database";
-import { formatDateLong, formatRupiah, formatTime } from "@/lib/utils";
+import { cn, formatDateLong, formatRupiah, formatTime } from "@/lib/utils";
 import {
   Banknote,
   Check,
@@ -13,6 +13,7 @@ import {
   Minus,
   Plus,
   User,
+  X,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
@@ -70,6 +71,7 @@ export function TransactionSheet({
   const selectedCustomer = customers.find((c) => c.id === customerId) ?? null;
 
   function addQty(item: MenuItem, delta: number) {
+    if (!item.is_active && delta > 0) return;
     setCart((prev) => {
       const current = prev[item.id]?.qty ?? 0;
       const nextQty = Math.max(0, current + delta);
@@ -266,12 +268,51 @@ export function TransactionSheet({
           </div>
         </div>
 
+        {/* Live cart preview */}
+        {lines.length > 0 && (
+          <div className="rounded-2xl border border-primary/20 bg-primary-soft/50 p-3">
+            <p className="mb-2 text-xs font-bold uppercase tracking-wide text-primary/70">
+              Keranjang ({totalQty} item)
+            </p>
+            <div className="flex flex-col gap-1.5">
+              {lines.map((l) => (
+                <div key={l.menuItemId} className="flex items-center justify-between text-sm">
+                  <span className="text-ink">
+                    <span className="font-bold">{l.qty}x</span> {l.name}
+                  </span>
+                  <div className="flex items-center gap-2">
+                    <span className="tabular-nums font-semibold text-ink">
+                      {formatRupiah(l.price * l.qty)}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setCart((prev) => {
+                          const next = { ...prev };
+                          delete next[l.menuItemId];
+                          return next;
+                        })
+                      }
+                      className="flex h-5 w-5 items-center justify-center rounded-full bg-black/10 text-ink-soft"
+                      aria-label={`Hapus ${l.name}`}
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* Menu picker */}
         <div>
-          <p className="mb-2 text-sm font-medium text-ink-soft">Pilih menu</p>
+          <p className="mb-2 text-sm font-medium text-ink-soft">
+            Pilih menu — tap untuk tambah
+          </p>
           {menuItems.length === 0 ? (
             <p className="rounded-xl bg-black/5 px-4 py-3 text-sm text-ink-soft">
-              Belum ada menu aktif. Tambahkan menu dulu di tab Menu.
+              Belum ada menu. Tambahkan menu dulu di tab Menu.
             </p>
           ) : (
             <div className="flex flex-col gap-4">
@@ -280,43 +321,67 @@ export function TransactionSheet({
                   <p className="mb-1.5 text-xs font-bold uppercase tracking-wide text-ink-faint">
                     {category}
                   </p>
-                  <div className="flex flex-col gap-2">
+                  <div className="grid grid-cols-2 gap-2">
                     {items.map((item) => {
                       const qty = cart[item.id]?.qty ?? 0;
+                      const kosong = !item.is_active;
                       return (
-                        <div
+                        <button
+                          type="button"
                           key={item.id}
-                          className="flex items-center gap-3 rounded-xl border border-border p-2.5"
+                          disabled={kosong}
+                          onClick={() => addQty(item, 1)}
+                          className={cn(
+                            "relative flex flex-col items-start gap-1 rounded-xl border p-3 text-left transition-colors",
+                            kosong
+                              ? "cursor-not-allowed border-border bg-black/[0.03] opacity-60"
+                              : qty > 0
+                                ? "border-primary bg-primary-soft"
+                                : "border-border bg-surface active:bg-black/5"
+                          )}
                         >
-                          <div className="min-w-0 flex-1">
-                            <p className="truncate text-sm font-semibold text-ink">
-                              {item.name}
-                            </p>
-                            <p className="text-xs text-ink-soft">
-                              {formatRupiah(item.price)}
-                            </p>
-                          </div>
-                          <div className="flex shrink-0 items-center gap-2">
-                            <button
-                              type="button"
-                              onClick={() => addQty(item, -1)}
-                              disabled={qty === 0}
-                              className="flex h-8 w-8 items-center justify-center rounded-full bg-black/5 text-ink disabled:opacity-30"
-                            >
-                              <Minus className="h-4 w-4" />
-                            </button>
-                            <span className="w-5 text-center text-sm font-bold tabular-nums">
+                          {kosong && (
+                            <span className="absolute right-2 top-2 rounded-full bg-ink-faint/20 px-2 py-0.5 text-[10px] font-bold uppercase text-ink-soft">
+                              Kosong
+                            </span>
+                          )}
+                          {qty > 0 && !kosong && (
+                            <span className="absolute -right-2 -top-2 flex h-6 w-6 items-center justify-center rounded-full bg-primary text-xs font-bold text-white shadow">
                               {qty}
                             </span>
-                            <button
-                              type="button"
-                              onClick={() => addQty(item, 1)}
-                              className="flex h-8 w-8 items-center justify-center rounded-full bg-primary text-white"
+                          )}
+                          <p
+                            className={cn(
+                              "text-sm font-semibold",
+                              kosong ? "text-ink-faint line-through" : "text-ink"
+                            )}
+                          >
+                            {item.name}
+                          </p>
+                          <p className="text-xs text-ink-soft">{formatRupiah(item.price)}</p>
+                          {qty > 0 && !kosong && (
+                            <div
+                              className="mt-1 flex items-center gap-2"
+                              onClick={(e) => e.stopPropagation()}
                             >
-                              <Plus className="h-4 w-4" />
-                            </button>
-                          </div>
-                        </div>
+                              <button
+                                type="button"
+                                onClick={() => addQty(item, -1)}
+                                className="flex h-6 w-6 items-center justify-center rounded-full bg-white text-ink shadow-sm"
+                              >
+                                <Minus className="h-3 w-3" />
+                              </button>
+                              <span className="text-xs font-bold tabular-nums">{qty}</span>
+                              <button
+                                type="button"
+                                onClick={() => addQty(item, 1)}
+                                className="flex h-6 w-6 items-center justify-center rounded-full bg-primary text-white"
+                              >
+                                <Plus className="h-3 w-3" />
+                              </button>
+                            </div>
+                          )}
+                        </button>
                       );
                     })}
                   </div>

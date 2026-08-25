@@ -65,12 +65,19 @@ export function MenuList({ items }: { items: MenuItem[] }) {
                   <button
                     onClick={() => handleToggle(item)}
                     disabled={pendingId === item.id}
-                    className={`h-3 w-3 shrink-0 rounded-full ${
-                      item.is_active ? "bg-primary" : "bg-ink-faint/40"
+                    className={`shrink-0 rounded-full px-2.5 py-1 text-[11px] font-bold uppercase transition-colors ${
+                      item.is_active
+                        ? "bg-primary-soft text-primary"
+                        : "bg-danger-soft text-danger"
                     }`}
-                    aria-label={item.is_active ? "Aktif" : "Nonaktif"}
-                    title={item.is_active ? "Aktif — tap untuk sembunyikan" : "Nonaktif — tap untuk aktifkan"}
-                  />
+                    title={
+                      item.is_active
+                        ? "Tersedia — tap untuk tandai Kosong"
+                        : "Kosong — tap untuk tandai Tersedia lagi"
+                    }
+                  >
+                    {item.is_active ? "Tersedia" : "Kosong"}
+                  </button>
                   <div className="min-w-0 flex-1">
                     <p
                       className={`truncate text-[15px] font-semibold ${
