@@ -1,6 +1,7 @@
 export type PaymentMethod = "cash" | "qris" | "transfer" | "hutang";
 export type TransactionStatus = "paid" | "unpaid";
 export type MemberRole = "owner" | "staff";
+export type StockMovementType = "sale" | "restock" | "adjustment" | "waste";
 
 export interface Database {
   public: {
@@ -12,6 +13,7 @@ export interface Database {
           name: string;
           address: string | null;
           logo_url: string | null;
+          background_url: string | null;
           theme_color: string;
           created_at: string;
         };
@@ -21,6 +23,7 @@ export interface Database {
           name: string;
           address?: string | null;
           logo_url?: string | null;
+          background_url?: string | null;
           theme_color?: string;
           created_at?: string;
         };
@@ -91,6 +94,8 @@ export interface Database {
           price: number;
           category: string;
           is_active: boolean;
+          stock_quantity: number;
+          stock_unit: string;
           created_at: string;
         };
         Insert: {
@@ -100,6 +105,8 @@ export interface Database {
           price?: number;
           category?: string;
           is_active?: boolean;
+          stock_quantity?: number;
+          stock_unit?: string;
           created_at?: string;
         };
         Update: Partial<Database["public"]["Tables"]["menu_items"]["Insert"]>;
@@ -109,6 +116,47 @@ export interface Database {
             columns: ["warung_id"];
             isOneToOne: false;
             referencedRelation: "warungs";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      stock_movements: {
+        Row: {
+          id: string;
+          warung_id: string;
+          menu_item_id: string;
+          quantity_change: number;
+          type: StockMovementType;
+          reason: string | null;
+          actor: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          warung_id: string;
+          menu_item_id: string;
+          quantity_change: number;
+          type: StockMovementType;
+          reason?: string | null;
+          actor?: string | null;
+          created_at?: string;
+        };
+        Update: Partial<
+          Database["public"]["Tables"]["stock_movements"]["Insert"]
+        >;
+        Relationships: [
+          {
+            foreignKeyName: "stock_movements_warung_id_fkey";
+            columns: ["warung_id"];
+            isOneToOne: false;
+            referencedRelation: "warungs";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "stock_movements_menu_item_id_fkey";
+            columns: ["menu_item_id"];
+            isOneToOne: false;
+            referencedRelation: "menu_items";
             referencedColumns: ["id"];
           },
         ];
@@ -245,6 +293,15 @@ export interface Database {
         };
         Returns: string;
       };
+      restock_menu_item: {
+        Args: {
+          _warung_id: string;
+          _menu_item_id: string;
+          _quantity: number;
+          _reason: string | null;
+        };
+        Returns: number;
+      };
     };
     Enums: Record<string, never>;
     CompositeTypes: Record<string, never>;
@@ -258,3 +315,5 @@ export type Transaction = Database["public"]["Tables"]["transactions"]["Row"];
 export type TransactionItem =
   Database["public"]["Tables"]["transaction_items"]["Row"];
 export type Expense = Database["public"]["Tables"]["expenses"]["Row"];
+export type StockMovement =
+  Database["public"]["Tables"]["stock_movements"]["Row"];

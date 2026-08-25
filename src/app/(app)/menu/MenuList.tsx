@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/Button";
 import { EmptyState } from "@/components/ui/Card";
 import type { MenuItem } from "@/lib/types/database";
 import { cn, formatRupiah } from "@/lib/utils";
-import { Pencil, Search, Trash2, X } from "lucide-react";
+import { PackagePlus, Pencil, Search, Trash2, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 import {
@@ -13,10 +13,14 @@ import {
   toggleMenuItemActive,
 } from "./actions";
 import { MenuFormSheet } from "./MenuFormSheet";
+import { RestockSheet } from "./RestockSheet";
+
+const LOW_STOCK_THRESHOLD = 5;
 
 export function MenuList({ items }: { items: MenuItem[] }) {
   const router = useRouter();
   const [editing, setEditing] = useState<MenuItem | null>(null);
+  const [restocking, setRestocking] = useState<MenuItem | null>(null);
   const [pendingId, setPendingId] = useState<string | null>(null);
   const [bulkPending, setBulkPending] = useState<string | null>(null);
   const [query, setQuery] = useState("");
@@ -198,54 +202,90 @@ export function MenuList({ items }: { items: MenuItem[] }) {
               </div>
             </div>
             <div className="flex flex-col gap-2">
-              {list.map((item) => (
-                <div
-                  key={item.id}
-                  className="flex items-center gap-3 rounded-2xl border border-border bg-surface p-3"
-                >
-                  <button
-                    onClick={() => handleToggle(item)}
-                    disabled={pendingId === item.id}
-                    className={`shrink-0 rounded-full px-2.5 py-1 text-[11px] font-bold uppercase transition-colors ${
-                      item.is_active
-                        ? "bg-primary-soft text-primary"
-                        : "bg-danger-soft text-danger"
-                    }`}
-                    title={
-                      item.is_active
-                        ? "Tersedia — tap untuk tandai Kosong"
-                        : "Kosong — tap untuk tandai Tersedia lagi"
-                    }
+              {list.map((item) => {
+                // Stock (jumlah fisik) dan availability (is_active) adalah
+                // dua konsep terpisah — habis (stock 0) SELALU tidak bisa
+                // dijual apapun status is_active-nya; is_active=false berarti
+                // sengaja dihentikan meski stok masih ada.
+                const habis = item.stock_quantity <= 0;
+                const sellable = item.is_active && !habis;
+                const lowStock =
+                  !habis && item.stock_quantity <= LOW_STOCK_THRESHOLD;
+                const statusLabel = habis
+                  ? "Habis"
+                  : item.is_active
+                    ? "Tersedia"
+                    : "Kosong";
+                return (
+                  <div
+                    key={item.id}
+                    className="flex items-center gap-3 rounded-2xl border border-border bg-surface p-3"
                   >
-                    {item.is_active ? "Tersedia" : "Kosong"}
-                  </button>
-                  <div className="min-w-0 flex-1">
-                    <p
-                      className={`truncate text-[15px] font-semibold ${
-                        item.is_active ? "text-ink" : "text-ink-faint line-through"
+                    <button
+                      onClick={() => handleToggle(item)}
+                      disabled={pendingId === item.id || habis}
+                      className={`shrink-0 rounded-full px-2.5 py-1 text-[11px] font-bold uppercase transition-colors disabled:opacity-70 ${
+                        sellable
+                          ? "bg-primary-soft text-primary"
+                          : "bg-danger-soft text-danger"
                       }`}
+                      title={
+                        habis
+                          ? "Stok habis — tambah stok untuk menjual lagi"
+                          : item.is_active
+                            ? "Tersedia — tap untuk tandai Kosong"
+                            : "Kosong — tap untuk tandai Tersedia lagi"
+                      }
                     >
-                      {item.name}
-                    </p>
-                    <p className="text-sm text-ink-soft">{formatRupiah(item.price)}</p>
+                      {statusLabel}
+                    </button>
+                    <div className="min-w-0 flex-1">
+                      <p
+                        className={`truncate text-[15px] font-semibold ${
+                          sellable ? "text-ink" : "text-ink-faint line-through"
+                        }`}
+                      >
+                        {item.name}
+                      </p>
+                      <div className="flex flex-wrap items-center gap-x-2 text-sm text-ink-soft">
+                        <span>{formatRupiah(item.price)}</span>
+                        <span className="text-ink-faint">·</span>
+                        <span className={lowStock ? "font-semibold text-danger" : undefined}>
+                          {item.stock_quantity} {item.stock_unit}
+                        </span>
+                        {lowStock && (
+                          <span className="rounded-full bg-danger-soft px-2 py-0.5 text-[10px] font-bold uppercase text-danger">
+                            Stok rendah
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => setRestocking(item)}
+                      className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary-soft text-primary active:bg-primary/20"
+                      aria-label="Tambah Stok"
+                      title="Tambah Stok"
+                    >
+                      <PackagePlus className="h-4 w-4" />
+                    </button>
+                    <button
+                      onClick={() => setEditing(item)}
+                      className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-black/5 text-ink-soft active:bg-black/10"
+                      aria-label="Ubah"
+                    >
+                      <Pencil className="h-4 w-4" />
+                    </button>
+                    <button
+                      onClick={() => handleDelete(item)}
+                      disabled={pendingId === item.id}
+                      className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-danger-soft text-danger active:bg-danger/20"
+                      aria-label="Hapus"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
                   </div>
-                  <button
-                    onClick={() => setEditing(item)}
-                    className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-black/5 text-ink-soft active:bg-black/10"
-                    aria-label="Ubah"
-                  >
-                    <Pencil className="h-4 w-4" />
-                  </button>
-                  <button
-                    onClick={() => handleDelete(item)}
-                    disabled={pendingId === item.id}
-                    className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-danger-soft text-danger active:bg-danger/20"
-                    aria-label="Hapus"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </button>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
         ))}
@@ -253,6 +293,11 @@ export function MenuList({ items }: { items: MenuItem[] }) {
       )}
 
       <MenuFormSheet open={!!editing} onClose={() => setEditing(null)} item={editing} />
+      <RestockSheet
+        open={!!restocking}
+        onClose={() => setRestocking(null)}
+        item={restocking}
+      />
     </>
   );
 }

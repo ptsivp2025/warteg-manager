@@ -5,7 +5,7 @@ import { Field } from "@/components/ui/Input";
 import { Sheet } from "@/components/ui/Sheet";
 import { createClient } from "@/lib/supabase/client";
 import type { Warung } from "@/lib/types/database";
-import { Store, Upload } from "lucide-react";
+import { ImageIcon, Store, Upload, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useRef, useState } from "react";
 import { updateWarungAppearance } from "./actions";
@@ -35,6 +35,12 @@ export function AppearanceSheet({
   const [themeColor, setThemeColor] = useState(warung.theme_color);
   const [logoPreview, setLogoPreview] = useState<string | null>(warung.logo_url);
   const [logoFile, setLogoFile] = useState<File | null>(null);
+  const [bgPreview, setBgPreview] = useState<string | null>(
+    warung.background_url
+  );
+  const [bgFile, setBgFile] = useState<File | null>(null);
+  const [bgRemoved, setBgRemoved] = useState(false);
+  const bgInputRef = useRef<HTMLInputElement>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -50,6 +56,25 @@ export function AppearanceSheet({
     setLogoPreview(URL.createObjectURL(file));
   }
 
+  function handleBgFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 4 * 1024 * 1024) {
+      setError("Ukuran background maksimal 4MB.");
+      return;
+    }
+    setError(null);
+    setBgFile(file);
+    setBgRemoved(false);
+    setBgPreview(URL.createObjectURL(file));
+  }
+
+  function handleRemoveBg() {
+    setBgFile(null);
+    setBgPreview(null);
+    setBgRemoved(true);
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
@@ -57,6 +82,7 @@ export function AppearanceSheet({
 
     try {
       let logoUrl: string | undefined;
+      let backgroundUrl: string | null | undefined;
 
       if (logoFile) {
         const ext = logoFile.name.split(".").pop() || "png";
@@ -72,7 +98,27 @@ export function AppearanceSheet({
         logoUrl = publicUrlData.publicUrl;
       }
 
-      const result = await updateWarungAppearance({ themeColor, logoUrl });
+      if (bgFile) {
+        const ext = bgFile.name.split(".").pop() || "png";
+        const path = `${warung.id}/background-${Date.now()}.${ext}`;
+        const { error: uploadError } = await supabase.storage
+          .from("warung-assets")
+          .upload(path, bgFile, { upsert: true });
+        if (uploadError) throw uploadError;
+
+        const { data: publicUrlData } = supabase.storage
+          .from("warung-assets")
+          .getPublicUrl(path);
+        backgroundUrl = publicUrlData.publicUrl;
+      } else if (bgRemoved) {
+        backgroundUrl = null;
+      }
+
+      const result = await updateWarungAppearance({
+        themeColor,
+        logoUrl,
+        backgroundUrl,
+      });
       if (result?.error) {
         setError(result.error);
         return;
@@ -122,6 +168,49 @@ export function AppearanceSheet({
           </div>
         </Field>
 
+        {/* Background */}
+        <Field label="Background (opsional)">
+          <div className="flex flex-col gap-2.5">
+            {bgPreview ? (
+              <div className="relative h-24 w-full overflow-hidden rounded-2xl border border-border bg-black/5">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={bgPreview}
+                  alt="Background"
+                  className="h-full w-full object-cover"
+                />
+                <button
+                  type="button"
+                  onClick={handleRemoveBg}
+                  aria-label="Hapus background"
+                  className="absolute right-2 top-2 flex h-7 w-7 items-center justify-center rounded-full bg-black/50 text-white"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+            ) : (
+              <div className="flex h-24 w-full items-center justify-center rounded-2xl border border-dashed border-border bg-black/[0.02] text-ink-faint">
+                <ImageIcon className="h-6 w-6" />
+              </div>
+            )}
+            <button
+              type="button"
+              onClick={() => bgInputRef.current?.click()}
+              className="flex h-10 items-center justify-center gap-2 rounded-xl border border-border px-3.5 text-sm font-medium text-ink-soft active:bg-black/5"
+            >
+              <Upload className="h-4 w-4" />
+              {bgPreview ? "Ganti background" : "Unggah background"}
+            </button>
+            <input
+              ref={bgInputRef}
+              type="file"
+              accept="image/png,image/jpeg,image/webp"
+              className="hidden"
+              onChange={handleBgFileChange}
+            />
+          </div>
+        </Field>
+
         {/* Theme color */}
         <Field label="Warna tema">
           <div className="flex flex-wrap gap-2.5">
@@ -160,7 +249,7 @@ export function AppearanceSheet({
         )}
 
         <Button type="submit" size="lg" loading={loading} className="w-full">
-          Simpan Tampilan
+          {loading ? "Menyimpan..." : "Simpan Tampilan"}
         </Button>
       </form>
     </Sheet>
