@@ -62,9 +62,13 @@ export default async function LaporanPage({
         <div className="grid grid-cols-2 gap-3">
           <StatCard label="Omzet" value={formatRupiah(data.omzet)} tone="primary" />
           <StatCard label="Belanja" value={formatRupiah(data.belanja)} tone="danger" />
-          <StatCard label="Laba" value={formatRupiah(data.laba)} tone="primary" />
+          <StatCard label="Operational Net" value={formatRupiah(data.laba)} tone="primary" />
           <StatCard label="Jumlah Transaksi" value={String(data.jumlahTransaksi)} />
         </div>
+        <p className="-mt-2 text-xs text-ink-faint">
+          Operational Net = Omzet − Belanja. Ini estimasi hasil operasional,
+          bukan laba akuntansi resmi.
+        </p>
 
         {data.hutang > 0 && (
           <div className="rounded-2xl bg-danger-soft px-4 py-3 text-sm font-medium text-danger">
@@ -89,6 +93,24 @@ export default async function LaporanPage({
                   </span>
                   <span className="font-semibold text-ink-soft tabular-nums">
                     {formatRupiah(m.total)}
+                  </span>
+                </li>
+              ))}
+            </ol>
+          )}
+        </Card>
+
+        <Card>
+          <p className="mb-3 text-sm font-bold text-ink">Belanja per Kategori</p>
+          {data.belanjaPerKategori.length === 0 ? (
+            <p className="text-sm text-ink-soft">Belum ada belanja pada periode ini.</p>
+          ) : (
+            <ol className="flex flex-col gap-2.5">
+              {data.belanjaPerKategori.map((k) => (
+                <li key={k.category} className="flex items-center justify-between text-sm">
+                  <span className="text-ink">{k.category}</span>
+                  <span className="font-semibold text-ink-soft tabular-nums">
+                    {formatRupiah(k.amount)}
                   </span>
                 </li>
               ))}

@@ -4,6 +4,7 @@ import type { Warung } from "@/lib/types/database";
 import {
   ChevronRight,
   LogOut,
+  Package,
   Paintbrush,
   Pencil,
   ShoppingBag,
@@ -60,6 +61,7 @@ export function LainnyaMenu({
 
         <div className="overflow-hidden rounded-2xl border border-border bg-surface">
           <MenuRow href="/pelanggan" icon={Users} label="Pelanggan" />
+          <MenuRow href="/bahan-baku" icon={Package} label="Bahan Baku" />
           <MenuRow href="/belanja" icon={ShoppingBag} label="Belanja" last />
         </div>
 

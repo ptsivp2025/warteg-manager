@@ -44,3 +44,21 @@ export function startOfMonthISO(): string {
   d.setHours(0, 0, 0, 0);
   return d.toISOString();
 }
+
+/** Plain `YYYY-MM-DD` for today, in UTC — matches how Postgres
+ * casts `created_at::date` (session timezone = UTC on Supabase),
+ * so it lines up with `summary_date` in the finance summary layer. */
+export function todayDateStr(): string {
+  return new Date().toISOString().slice(0, 10);
+}
+
+export function dateNDaysAgoStr(n: number): string {
+  const d = new Date();
+  d.setUTCDate(d.getUTCDate() - n);
+  return d.toISOString().slice(0, 10);
+}
+
+export function monthStartDateStr(): string {
+  const d = new Date();
+  return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}-01`;
+}

@@ -11,18 +11,32 @@ export default async function MenuPage() {
   if (!warung) return null;
 
   const supabase = await createClient();
-  const { data: items } = await supabase
-    .from("menu_items")
-    .select("*")
-    .eq("warung_id", warung.id)
-    .order("category")
-    .order("name");
+  const [{ data: items }, { data: ingredients }, { data: units }] =
+    await Promise.all([
+      supabase
+        .from("menu_items")
+        .select("*")
+        .eq("warung_id", warung.id)
+        .order("category")
+        .order("name"),
+      supabase
+        .from("ingredients")
+        .select("*")
+        .eq("warung_id", warung.id)
+        .eq("is_active", true)
+        .order("name"),
+      supabase.from("units").select("*").order("category").order("name"),
+    ]);
 
   return (
     <div className="flex flex-col gap-4">
       <PageHeader eyebrow="Kelola" title="Menu" />
       <div className="px-5">
-        <MenuList items={items ?? []} />
+        <MenuList
+          items={items ?? []}
+          ingredients={ingredients ?? []}
+          units={units ?? []}
+        />
       </div>
       <AddMenuFab />
     </div>
