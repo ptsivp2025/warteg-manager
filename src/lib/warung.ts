@@ -9,6 +9,7 @@ import type { Warung } from "@/lib/types/database";
 export async function getCurrentUserAndWarung(): Promise<{
   userId: string | null;
   warung: Warung | null;
+  isOwner: boolean;
 }> {
   const supabase = await createClient();
   const {
@@ -16,7 +17,7 @@ export async function getCurrentUserAndWarung(): Promise<{
   } = await supabase.auth.getUser();
 
   if (!user) {
-    return { userId: null, warung: null };
+    return { userId: null, warung: null, isOwner: false };
   }
 
   const { data: membership } = await supabase
@@ -28,5 +29,5 @@ export async function getCurrentUserAndWarung(): Promise<{
 
   const warung = (membership?.warungs as unknown as Warung) ?? null;
 
-  return { userId: user.id, warung };
+  return { userId: user.id, warung, isOwner: warung?.owner_id === user.id };
 }

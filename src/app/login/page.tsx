@@ -4,17 +4,30 @@ import { Button } from "@/components/ui/Button";
 import { Field, Input } from "@/components/ui/Input";
 import { createClient } from "@/lib/supabase/client";
 import { Mail, Store } from "lucide-react";
-import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { Suspense, useState } from "react";
 
 export default function LoginPage() {
+  return (
+    <Suspense fallback={null}>
+      <LoginForm />
+    </Suspense>
+  );
+}
+
+function LoginForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const supabase = createClient();
+  // Present when arriving from an invite link (/invite/[token] -> here
+  // -> back to the invite link after auth) so we don't dump an invited
+  // user into "create a new warung" onboarding.
+  const next = searchParams.get("next");
 
   const [mode, setMode] = useState<"login" | "register">("login");
   const [fullName, setFullName] = useState("");
   const [phone, setPhone] = useState("");
-  const [email, setEmail] = useState("");
+  const [email, setEmail] = useState(searchParams.get("email") ?? "");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [resending, setResending] = useState(false);
@@ -41,7 +54,7 @@ export default function LoginPage() {
           }
           throw error;
         }
-        router.replace("/dashboard");
+        router.replace(next ?? "/dashboard");
         router.refresh();
       } else {
         const { data, error } = await supabase.auth.signUp({
@@ -62,7 +75,9 @@ export default function LoginPage() {
           return;
         }
 
-        router.replace("/onboarding");
+        // Skip onboarding (which creates a brand-new warung) when this
+        // signup came from an invite link — send them back to accept it.
+        router.replace(next ?? "/onboarding");
         router.refresh();
       }
     } catch (err) {

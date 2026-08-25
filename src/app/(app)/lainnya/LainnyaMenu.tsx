@@ -7,6 +7,7 @@ import {
   Package,
   Paintbrush,
   Pencil,
+  ShieldCheck,
   ShoppingBag,
   Store,
   Users,
@@ -20,9 +21,11 @@ import { WarungFormSheet } from "./WarungFormSheet";
 export function LainnyaMenu({
   warung,
   email,
+  isOwner,
 }: {
   warung: Warung;
   email: string | null;
+  isOwner: boolean;
 }) {
   const [editOpen, setEditOpen] = useState(false);
   const [appearanceOpen, setAppearanceOpen] = useState(false);
@@ -62,7 +65,20 @@ export function LainnyaMenu({
         <div className="overflow-hidden rounded-2xl border border-border bg-surface">
           <MenuRow href="/pelanggan" icon={Users} label="Pelanggan" />
           <MenuRow href="/bahan-baku" icon={Package} label="Bahan Baku" />
-          <MenuRow href="/belanja" icon={ShoppingBag} label="Belanja" last />
+          <MenuRow
+            href="/belanja"
+            icon={ShoppingBag}
+            label="Belanja"
+            last={!isOwner}
+          />
+          {isOwner && (
+            <MenuRow
+              href="/anggota"
+              icon={ShieldCheck}
+              label="Anggota & Peran"
+              last
+            />
+          )}
         </div>
 
         <button

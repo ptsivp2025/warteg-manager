@@ -10,6 +10,32 @@ export type MemberRole =
   | "kitchen"
   | "inventory"
   | "finance";
+// Roles that can be invited/assigned via the member management UI.
+// Excludes 'owner' (there is exactly one, tied to warungs.owner_id,
+// never assigned through this flow) and the legacy 'staff' value
+// (kept for old rows only — new members get a specific role).
+export type InvitableRole = Exclude<MemberRole, "owner" | "staff">;
+export type InviteStatus = "pending" | "accepted" | "revoked";
+export const MEMBER_ROLE_LABELS: Record<MemberRole, string> = {
+  owner: "Pemilik",
+  staff: "Staf",
+  admin: "Admin",
+  manager: "Manajer",
+  supervisor: "Supervisor",
+  cashier: "Kasir",
+  kitchen: "Dapur",
+  inventory: "Gudang",
+  finance: "Keuangan",
+};
+export const INVITABLE_ROLES: InvitableRole[] = [
+  "admin",
+  "manager",
+  "supervisor",
+  "cashier",
+  "kitchen",
+  "inventory",
+  "finance",
+];
 export type StockMovementType = "sale" | "restock" | "adjustment" | "waste";
 export type UnitCategory = "weight" | "volume" | "count";
 export type IngredientMovementType =
@@ -616,6 +642,44 @@ export interface Database {
           },
         ];
       };
+      warung_invites: {
+        Row: {
+          id: string;
+          warung_id: string;
+          email: string;
+          role: InvitableRole;
+          token: string;
+          invited_by: string;
+          status: InviteStatus;
+          expires_at: string;
+          created_at: string;
+          accepted_at: string | null;
+        };
+        Insert: {
+          id?: string;
+          warung_id: string;
+          email: string;
+          role: InvitableRole;
+          token?: string;
+          invited_by: string;
+          status?: InviteStatus;
+          expires_at?: string;
+          created_at?: string;
+          accepted_at?: string | null;
+        };
+        Update: Partial<
+          Database["public"]["Tables"]["warung_invites"]["Insert"]
+        >;
+        Relationships: [
+          {
+            foreignKeyName: "warung_invites_warung_id_fkey";
+            columns: ["warung_id"];
+            isOneToOne: false;
+            referencedRelation: "warungs";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
     };
     Views: Record<string, never>;
     Functions: {
@@ -679,6 +743,38 @@ export interface Database {
         };
         Returns: number;
       };
+      current_member_role: {
+        Args: { _warung_id: string };
+        Returns: string | null;
+      };
+      list_warung_members: {
+        Args: { _warung_id: string };
+        Returns: {
+          id: string;
+          user_id: string;
+          email: string;
+          role: MemberRole;
+          created_at: string;
+        }[];
+      };
+      create_warung_invite: {
+        Args: { _warung_id: string; _email: string; _role: string };
+        Returns: Database["public"]["Tables"]["warung_invites"]["Row"];
+      };
+      get_invite_by_token: {
+        Args: { _token: string };
+        Returns: {
+          warung_name: string;
+          role: InvitableRole;
+          status: InviteStatus;
+          email: string;
+          expired: boolean;
+        }[];
+      };
+      accept_warung_invite: {
+        Args: { _token: string };
+        Returns: string;
+      };
     };
     Enums: Record<string, never>;
     CompositeTypes: Record<string, never>;
@@ -711,3 +807,7 @@ export type IngredientStockMovement =
   Database["public"]["Tables"]["ingredient_stock_movements"]["Row"];
 export type Recipe = Database["public"]["Tables"]["recipes"]["Row"];
 export type RecipeItem = Database["public"]["Tables"]["recipe_items"]["Row"];
+export type WarungMember =
+  Database["public"]["Tables"]["warung_members"]["Row"];
+export type WarungInvite =
+  Database["public"]["Tables"]["warung_invites"]["Row"];
