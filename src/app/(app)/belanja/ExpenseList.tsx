@@ -3,9 +3,9 @@
 import { EmptyState } from "@/components/ui/Card";
 import type { Expense } from "@/lib/types/database";
 import { formatRupiah } from "@/lib/utils";
-import { Plus, Trash2 } from "lucide-react";
+import { Plus, Search, Trash2, X } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { deleteExpense } from "./actions";
 import { ExpenseFormSheet } from "./ExpenseFormSheet";
 
@@ -13,6 +13,7 @@ export function ExpenseList({ expenses }: { expenses: Expense[] }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [pendingId, setPendingId] = useState<string | null>(null);
+  const [query, setQuery] = useState("");
 
   async function handleDelete(e: Expense) {
     if (!confirm("Hapus catatan belanja ini?")) return;
@@ -22,26 +23,61 @@ export function ExpenseList({ expenses }: { expenses: Expense[] }) {
     router.refresh();
   }
 
-  const total = expenses.reduce((sum, e) => sum + Number(e.amount), 0);
+  const filtered = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return expenses;
+    return expenses.filter(
+      (e) =>
+        e.category.toLowerCase().includes(q) ||
+        (e.description ?? "").toLowerCase().includes(q)
+    );
+  }, [expenses, query]);
+
+  const total = filtered.reduce((sum, e) => sum + Number(e.amount), 0);
 
   return (
     <>
       <div className="flex flex-col gap-4">
         <div className="rounded-2xl bg-danger-soft px-4 py-3">
-          <p className="text-xs font-medium text-danger/80">Total Belanja</p>
+          <p className="text-xs font-medium text-danger/80">
+            {query ? "Total (hasil pencarian)" : "Total Belanja"}
+          </p>
           <p className="text-xl font-extrabold tabular-nums text-danger">
             {formatRupiah(total)}
           </p>
         </div>
+
+        {expenses.length > 0 && (
+          <div className="relative">
+            <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-faint" />
+            <input
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Cari kategori atau catatan..."
+              className="h-11 w-full rounded-xl border border-border bg-surface pl-10 pr-9 text-[15px] text-ink placeholder:text-ink-faint outline-none focus:border-primary focus:ring-2 focus:ring-primary/15"
+            />
+            {query && (
+              <button
+                onClick={() => setQuery("")}
+                className="absolute right-2.5 top-1/2 flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-full text-ink-faint active:bg-black/5"
+                aria-label="Hapus pencarian"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            )}
+          </div>
+        )}
 
         {expenses.length === 0 ? (
           <EmptyState
             title="Belum ada catatan belanja"
             description="Catat pengeluaran harian seperti belanja bahan, gas, atau sewa."
           />
+        ) : filtered.length === 0 ? (
+          <EmptyState title="Tidak ditemukan" description="Coba kata kunci lain." />
         ) : (
           <div className="flex flex-col gap-2">
-            {expenses.map((e) => (
+            {filtered.map((e) => (
               <div
                 key={e.id}
                 className="flex items-center gap-3 rounded-2xl border border-border bg-surface p-3"

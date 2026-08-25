@@ -26,6 +26,9 @@ export async function createTransaction(input: {
   if (input.items.length === 0) {
     return { error: "Pilih minimal satu menu." };
   }
+  if (input.paymentMethod === "hutang" && !input.customerId) {
+    return { error: "Transaksi hutang wajib memilih nama pelanggan." };
+  }
 
   const total = input.items.reduce((sum, i) => sum + i.price * i.qty, 0);
   const status: TransactionStatus =
@@ -79,6 +82,23 @@ export async function markTransactionPaid(id: string) {
   revalidatePath("/transaksi");
   revalidatePath("/dashboard");
   revalidatePath("/laporan");
+  revalidatePath("/pelanggan");
+}
+
+export async function markAllPaidForCustomer(customerId: string) {
+  const { warung } = await getCurrentUserAndWarung();
+  if (!warung) return;
+  const supabase = await createClient();
+  await supabase
+    .from("transactions")
+    .update({ status: "paid" })
+    .eq("warung_id", warung.id)
+    .eq("customer_id", customerId)
+    .eq("status", "unpaid");
+  revalidatePath("/transaksi");
+  revalidatePath("/dashboard");
+  revalidatePath("/laporan");
+  revalidatePath("/pelanggan");
 }
 
 export async function deleteTransaction(id: string) {
