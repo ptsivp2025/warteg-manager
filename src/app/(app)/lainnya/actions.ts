@@ -29,6 +29,7 @@ export async function updateWarungProfile(input: {
 export async function updateWarungAppearance(input: {
   themeColor: string;
   logoUrl?: string | null;
+  backgroundUrl?: string | null;
 }) {
   const { warung } = await getCurrentUserAndWarung();
   if (!warung) return { error: "Warung tidak ditemukan." };
@@ -37,10 +38,16 @@ export async function updateWarungAppearance(input: {
   if (!isValidHex) return { error: "Format warna tidak valid." };
 
   const supabase = await createClient();
-  const update: { theme_color: string; logo_url?: string | null } = {
+  const update: {
+    theme_color: string;
+    logo_url?: string | null;
+    background_url?: string | null;
+  } = {
     theme_color: input.themeColor,
   };
   if (input.logoUrl !== undefined) update.logo_url = input.logoUrl;
+  if (input.backgroundUrl !== undefined)
+    update.background_url = input.backgroundUrl;
 
   const { error } = await supabase
     .from("warungs")

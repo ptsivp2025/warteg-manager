@@ -102,7 +102,13 @@ export function TransactionSheet({
     if (!item.is_active && delta > 0) return;
     setCart((prev) => {
       const current = prev[item.id]?.qty ?? 0;
-      const nextQty = Math.max(0, current + delta);
+      // Frontend membatasi qty ke stock yang terlihat untuk UX — server
+      // (RPC create_transaction) tetap melakukan validasi ulang yang
+      // sebenarnya, jadi ini bukan satu-satunya lapisan pertahanan.
+      const nextQty = Math.max(
+        0,
+        Math.min(current + delta, item.stock_quantity)
+      );
       const next = { ...prev };
       if (nextQty === 0) {
         delete next[item.id];
@@ -390,7 +396,9 @@ export function TransactionSheet({
                     <div className="grid grid-cols-2 gap-2">
                       {items.map((item) => {
                         const qty = cart[item.id]?.qty ?? 0;
-                        const kosong = !item.is_active;
+                        const habis = item.stock_quantity <= 0;
+                        const kosong = !item.is_active || habis;
+                        const atStockLimit = qty >= item.stock_quantity;
                         return (
                           <button
                             type="button"
@@ -408,7 +416,7 @@ export function TransactionSheet({
                           >
                             {kosong && (
                               <span className="absolute right-2 top-2 rounded-full bg-ink-faint/20 px-2 py-0.5 text-[10px] font-bold uppercase text-ink-soft">
-                                Kosong
+                                {habis ? "Habis" : "Kosong"}
                               </span>
                             )}
                             {qty > 0 && !kosong && (
@@ -425,6 +433,11 @@ export function TransactionSheet({
                               {item.name}
                             </p>
                             <p className="text-xs text-ink-soft">{formatRupiah(item.price)}</p>
+                            {!kosong && (
+                              <p className="text-[11px] text-ink-faint">
+                                Sisa {item.stock_quantity} {item.stock_unit}
+                              </p>
+                            )}
                             {qty > 0 && !kosong && (
                               <div
                                 className="mt-1 flex items-center gap-2"
@@ -440,8 +453,9 @@ export function TransactionSheet({
                                 <span className="text-xs font-bold tabular-nums">{qty}</span>
                                 <button
                                   type="button"
+                                  disabled={atStockLimit}
                                   onClick={() => addQty(item, 1)}
-                                  className="flex h-6 w-6 items-center justify-center rounded-full bg-primary text-white"
+                                  className="flex h-6 w-6 items-center justify-center rounded-full bg-primary text-white disabled:opacity-40"
                                 >
                                   <Plus className="h-3 w-3" />
                                 </button>
@@ -526,16 +540,29 @@ export function TransactionSheet({
                       </span>
                       <button
                         type="button"
-                        onClick={() =>
-                          setCart((prev) => ({
-                            ...prev,
-                            [l.menuItemId]: {
-                              ...prev[l.menuItemId],
-                              qty: (prev[l.menuItemId]?.qty ?? 0) + 1,
-                            },
-                          }))
+                        disabled={
+                          l.qty >=
+                          (menuItems.find((m) => m.id === l.menuItemId)
+                            ?.stock_quantity ?? l.qty)
                         }
-                        className="flex h-8 w-8 items-center justify-center rounded-full bg-primary text-white active:bg-primary-dark"
+                        onClick={() =>
+                          setCart((prev) => {
+                            const stock = menuItems.find(
+                              (m) => m.id === l.menuItemId
+                            )?.stock_quantity;
+                            const current = prev[l.menuItemId]?.qty ?? 0;
+                            if (stock !== undefined && current >= stock)
+                              return prev;
+                            return {
+                              ...prev,
+                              [l.menuItemId]: {
+                                ...prev[l.menuItemId],
+                                qty: current + 1,
+                              },
+                            };
+                          })
+                        }
+                        className="flex h-8 w-8 items-center justify-center rounded-full bg-primary text-white active:bg-primary-dark disabled:opacity-40"
                         aria-label={`Tambah ${l.name}`}
                       >
                         <Plus className="h-3.5 w-3.5" />

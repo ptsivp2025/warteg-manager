@@ -25,6 +25,14 @@ export default async function AppGroupLayout({
     "--color-primary": warung.theme_color,
     "--color-primary-dark": `color-mix(in srgb, ${warung.theme_color} 80%, black)`,
     "--color-primary-soft": `color-mix(in srgb, ${warung.theme_color} 14%, white)`,
+    ...(warung.background_url
+      ? {
+          backgroundImage: `linear-gradient(color-mix(in srgb, var(--color-bg) 88%, transparent), color-mix(in srgb, var(--color-bg) 88%, transparent)), url(${warung.background_url})`,
+          backgroundSize: "cover",
+          backgroundPosition: "center",
+          backgroundAttachment: "fixed",
+        }
+      : {}),
   } as CSSProperties;
 
   return (

@@ -12,11 +12,15 @@ export async function createMenuItem(input: {
   name: string;
   price: number;
   category: string;
+  stockQuantity: number;
+  stockUnit: string;
 }): Promise<MenuFormState> {
   const { warung } = await getCurrentUserAndWarung();
   if (!warung) return { error: "Warung tidak ditemukan." };
   if (!input.name.trim()) return { error: "Nama menu wajib diisi." };
   if (input.price < 0) return { error: "Harga tidak valid." };
+  if (input.stockQuantity < 0) return { error: "Stok tidak valid." };
+  if (!input.stockUnit.trim()) return { error: "Satuan stok wajib diisi." };
 
   const supabase = await createClient();
   const { error } = await supabase.from("menu_items").insert({
@@ -24,6 +28,8 @@ export async function createMenuItem(input: {
     name: input.name.trim(),
     price: input.price,
     category: input.category.trim() || "Lainnya",
+    stock_quantity: input.stockQuantity,
+    stock_unit: input.stockUnit.trim(),
   });
   if (error) return { error: error.message };
 
@@ -32,11 +38,16 @@ export async function createMenuItem(input: {
   return {};
 }
 
+// Catatan: stock_quantity SENGAJA tidak bisa diubah lewat form edit ini.
+// Menambah stok wajib lewat restockMenuItem (action "Tambah Stok") supaya
+// tercatat sebagai stock movement dan bersifat additive (17 + 20 = 37),
+// bukan menimpa langsung ke angka baru.
 export async function updateMenuItem(
   id: string,
-  input: { name: string; price: number; category: string }
+  input: { name: string; price: number; category: string; stockUnit: string }
 ): Promise<MenuFormState> {
   if (!input.name.trim()) return { error: "Nama menu wajib diisi." };
+  if (!input.stockUnit.trim()) return { error: "Satuan stok wajib diisi." };
   const supabase = await createClient();
   const { error } = await supabase
     .from("menu_items")
@@ -44,6 +55,7 @@ export async function updateMenuItem(
       name: input.name.trim(),
       price: input.price,
       category: input.category.trim() || "Lainnya",
+      stock_unit: input.stockUnit.trim(),
     })
     .eq("id", id);
   if (error) return { error: error.message };
@@ -51,6 +63,36 @@ export async function updateMenuItem(
   revalidatePath("/menu");
   revalidatePath("/transaksi");
   return {};
+}
+
+export interface RestockState {
+  error?: string;
+  newStock?: number;
+}
+
+export async function restockMenuItem(
+  id: string,
+  quantity: number,
+  reason: string
+): Promise<RestockState> {
+  const { warung } = await getCurrentUserAndWarung();
+  if (!warung) return { error: "Warung tidak ditemukan." };
+  if (!Number.isFinite(quantity) || quantity <= 0) {
+    return { error: "Jumlah tambah stok tidak valid." };
+  }
+
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("restock_menu_item", {
+    _warung_id: warung.id,
+    _menu_item_id: id,
+    _quantity: quantity,
+    _reason: reason.trim() || null,
+  });
+  if (error) return { error: error.message };
+
+  revalidatePath("/menu");
+  revalidatePath("/transaksi");
+  return { newStock: data ?? undefined };
 }
 
 export async function toggleMenuItemActive(id: string, isActive: boolean) {
