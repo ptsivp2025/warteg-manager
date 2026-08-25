@@ -3,7 +3,7 @@
 import { Button } from "@/components/ui/Button";
 import { Field, Input } from "@/components/ui/Input";
 import { createClient } from "@/lib/supabase/client";
-import { Store } from "lucide-react";
+import { Mail, Store } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
@@ -12,14 +12,20 @@ export default function LoginPage() {
   const supabase = createClient();
 
   const [mode, setMode] = useState<"login" | "register">("login");
+  const [fullName, setFullName] = useState("");
+  const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
+  const [resending, setResending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [needsConfirmation, setNeedsConfirmation] = useState<string | null>(null);
+  const [confirmationSent, setConfirmationSent] = useState(false);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
+    setNeedsConfirmation(null);
     setLoading(true);
 
     try {
@@ -28,15 +34,34 @@ export default function LoginPage() {
           email,
           password,
         });
-        if (error) throw error;
+        if (error) {
+          if (error.message.includes("Email not confirmed")) {
+            setNeedsConfirmation(email);
+            return;
+          }
+          throw error;
+        }
         router.replace("/dashboard");
         router.refresh();
       } else {
-        const { error } = await supabase.auth.signUp({
+        const { data, error } = await supabase.auth.signUp({
           email,
           password,
+          options: {
+            data: {
+              full_name: fullName.trim(),
+              phone: phone.trim(),
+            },
+          },
         });
         if (error) throw error;
+
+        // If Supabase requires email confirmation, there is no session yet.
+        if (!data.session) {
+          setConfirmationSent(true);
+          return;
+        }
+
         router.replace("/onboarding");
         router.refresh();
       }
@@ -47,6 +72,50 @@ export default function LoginPage() {
     } finally {
       setLoading(false);
     }
+  }
+
+  async function handleResend() {
+    if (!needsConfirmation) return;
+    setResending(true);
+    setError(null);
+    try {
+      const { error } = await supabase.auth.resend({
+        type: "signup",
+        email: needsConfirmation,
+      });
+      if (error) throw error;
+      setConfirmationSent(true);
+      setNeedsConfirmation(null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Gagal mengirim ulang email.");
+    } finally {
+      setResending(false);
+    }
+  }
+
+  if (confirmationSent) {
+    return (
+      <div className="mx-auto flex min-h-dvh w-full max-w-md flex-col items-center justify-center px-6 py-10 text-center">
+        <div className="mb-5 flex h-16 w-16 items-center justify-center rounded-2xl bg-primary-soft text-primary">
+          <Mail className="h-8 w-8" />
+        </div>
+        <h1 className="text-xl font-extrabold text-ink">Cek Email Anda</h1>
+        <p className="mt-2 text-sm text-ink-soft">
+          Kami sudah mengirim link konfirmasi ke <strong>{email}</strong>.
+          Buka email tersebut lalu klik link untuk mengaktifkan akun sebelum
+          bisa masuk.
+        </p>
+        <button
+          className="mt-6 text-sm font-medium text-primary"
+          onClick={() => {
+            setConfirmationSent(false);
+            setMode("login");
+          }}
+        >
+          Kembali ke halaman masuk
+        </button>
+      </div>
+    );
   }
 
   return (
@@ -62,6 +131,27 @@ export default function LoginPage() {
       </div>
 
       <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+        {mode === "register" && (
+          <>
+            <Field label="Nama pemilik">
+              <Input
+                required
+                placeholder="Nama lengkap Anda"
+                value={fullName}
+                onChange={(e) => setFullName(e.target.value)}
+              />
+            </Field>
+            <Field label="No. HP">
+              <Input
+                type="tel"
+                required
+                placeholder="08xxxxxxxxxx"
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+              />
+            </Field>
+          </>
+        )}
         <Field label="Email">
           <Input
             type="email"
@@ -84,6 +174,23 @@ export default function LoginPage() {
           />
         </Field>
 
+        {needsConfirmation && (
+          <div className="flex flex-col gap-2 rounded-xl bg-danger-soft px-4 py-3 text-sm text-danger">
+            <p>
+              Email <strong>{needsConfirmation}</strong> belum dikonfirmasi.
+              Cek inbox/spam Anda, atau kirim ulang link konfirmasinya.
+            </p>
+            <button
+              type="button"
+              onClick={handleResend}
+              disabled={resending}
+              className="self-start font-semibold underline disabled:opacity-60"
+            >
+              {resending ? "Mengirim..." : "Kirim ulang email konfirmasi"}
+            </button>
+          </div>
+        )}
+
         {error && (
           <p className="rounded-xl bg-danger-soft px-4 py-2.5 text-sm text-danger">
             {error}
@@ -91,7 +198,11 @@ export default function LoginPage() {
         )}
 
         <Button type="submit" size="lg" loading={loading} className="mt-2 w-full">
-          {mode === "login" ? "Masuk" : "Daftar Warteg Baru"}
+          {loading
+            ? "Memproses..."
+            : mode === "login"
+              ? "Masuk"
+              : "Daftar Warteg Baru"}
         </Button>
       </form>
 
@@ -100,6 +211,7 @@ export default function LoginPage() {
         onClick={() => {
           setMode(mode === "login" ? "register" : "login");
           setError(null);
+          setNeedsConfirmation(null);
         }}
       >
         {mode === "login"
