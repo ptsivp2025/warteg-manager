@@ -1,29 +1,51 @@
 "use client";
 
+import { Button } from "@/components/ui/Button";
 import { EmptyState } from "@/components/ui/Card";
 import type { MenuItem } from "@/lib/types/database";
-import { formatRupiah } from "@/lib/utils";
+import { cn, formatRupiah } from "@/lib/utils";
 import { Pencil, Search, Trash2, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
-import { deleteMenuItem, toggleMenuItemActive } from "./actions";
+import {
+  bulkSetMenuAvailability,
+  deleteMenuItem,
+  toggleMenuItemActive,
+} from "./actions";
 import { MenuFormSheet } from "./MenuFormSheet";
 
 export function MenuList({ items }: { items: MenuItem[] }) {
   const router = useRouter();
   const [editing, setEditing] = useState<MenuItem | null>(null);
   const [pendingId, setPendingId] = useState<string | null>(null);
+  const [bulkPending, setBulkPending] = useState<string | null>(null);
   const [query, setQuery] = useState("");
+  const [categoryFilter, setCategoryFilter] = useState<string>("Semua");
+
+  const categoryList = useMemo(() => {
+    const set = new Set<string>();
+    for (const item of items) set.add(item.category);
+    return Array.from(set);
+  }, [items]);
+
+  const availableCount = useMemo(
+    () => items.filter((i) => i.is_active).length,
+    [items]
+  );
+  const kosongCount = items.length - availableCount;
 
   const filteredItems = useMemo(() => {
     const q = query.trim().toLowerCase();
-    if (!q) return items;
-    return items.filter(
-      (item) =>
+    return items.filter((item) => {
+      if (categoryFilter !== "Semua" && item.category !== categoryFilter)
+        return false;
+      if (!q) return true;
+      return (
         item.name.toLowerCase().includes(q) ||
         item.category.toLowerCase().includes(q)
-    );
-  }, [items, query]);
+      );
+    });
+  }, [items, query, categoryFilter]);
 
   const grouped = useMemo(() => {
     const map = new Map<string, MenuItem[]>();
@@ -59,8 +81,45 @@ export function MenuList({ items }: { items: MenuItem[] }) {
     router.refresh();
   }
 
+  async function handleBulk(isActive: boolean, category?: string) {
+    const scopeLabel = category ? `kategori "${category}"` : "SEMUA menu";
+    const stateLabel = isActive ? "Tersedia" : "Kosong";
+    if (!confirm(`Jadikan ${scopeLabel} berstatus "${stateLabel}"?`)) return;
+    const key = `${category ?? "all"}-${isActive}`;
+    setBulkPending(key);
+    await bulkSetMenuAvailability(isActive, category);
+    setBulkPending(null);
+    router.refresh();
+  }
+
   return (
     <>
+      <div className="mb-3 flex items-center justify-between rounded-2xl bg-primary-soft px-4 py-2.5">
+        <p className="text-xs font-medium text-primary">
+          Tersedia: {availableCount} · Kosong: {kosongCount}
+        </p>
+        <div className="flex gap-1.5">
+          <Button
+            size="md"
+            variant="outline"
+            className="h-8 px-2.5 text-xs"
+            loading={bulkPending === "all-true"}
+            onClick={() => handleBulk(true)}
+          >
+            Semua Tersedia
+          </Button>
+          <Button
+            size="md"
+            variant="outline"
+            className="h-8 px-2.5 text-xs"
+            loading={bulkPending === "all-false"}
+            onClick={() => handleBulk(false)}
+          >
+            Semua Kosong
+          </Button>
+        </div>
+      </div>
+
       <div className="relative mb-3">
         <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-faint" />
         <input
@@ -80,15 +139,64 @@ export function MenuList({ items }: { items: MenuItem[] }) {
         )}
       </div>
 
+      {categoryList.length > 1 && (
+        <div className="-mx-5 mb-3 flex gap-2 overflow-x-auto px-5 pb-0.5 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+          <button
+            onClick={() => setCategoryFilter("Semua")}
+            className={cn(
+              "shrink-0 rounded-full px-3 py-1.5 text-xs font-semibold",
+              categoryFilter === "Semua"
+                ? "bg-primary text-white"
+                : "border border-border bg-surface text-ink-soft"
+            )}
+          >
+            Semua
+          </button>
+          {categoryList.map((cat) => (
+            <button
+              key={cat}
+              onClick={() => setCategoryFilter(cat)}
+              className={cn(
+                "shrink-0 rounded-full px-3 py-1.5 text-xs font-semibold",
+                categoryFilter === cat
+                  ? "bg-primary text-white"
+                  : "border border-border bg-surface text-ink-soft"
+              )}
+            >
+              {cat}
+            </button>
+          ))}
+        </div>
+      )}
+
       {grouped.length === 0 ? (
         <EmptyState title="Tidak ditemukan" description="Coba kata kunci lain." />
       ) : (
       <div className="flex flex-col gap-5">
         {grouped.map(([category, list]) => (
           <div key={category}>
-            <p className="mb-2 text-xs font-bold uppercase tracking-wide text-ink-faint">
-              {category}
-            </p>
+            <div className="mb-2 flex items-center justify-between">
+              <p className="text-xs font-bold uppercase tracking-wide text-ink-faint">
+                {category}
+              </p>
+              <div className="flex gap-1">
+                <button
+                  onClick={() => handleBulk(true, category)}
+                  disabled={bulkPending === `${category}-true`}
+                  className="rounded-full px-2 py-0.5 text-[11px] font-semibold text-primary active:bg-primary-soft disabled:opacity-50"
+                >
+                  Semua Tersedia
+                </button>
+                <span className="text-ink-faint">·</span>
+                <button
+                  onClick={() => handleBulk(false, category)}
+                  disabled={bulkPending === `${category}-false`}
+                  className="rounded-full px-2 py-0.5 text-[11px] font-semibold text-danger active:bg-danger-soft disabled:opacity-50"
+                >
+                  Semua Kosong
+                </button>
+              </div>
+            </div>
             <div className="flex flex-col gap-2">
               {list.map((item) => (
                 <div

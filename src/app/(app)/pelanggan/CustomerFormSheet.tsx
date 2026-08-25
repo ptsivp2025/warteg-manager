@@ -12,10 +12,13 @@ export function CustomerFormSheet({
   open,
   onClose,
   customer,
+  onCreated,
 }: {
   open: boolean;
   onClose: () => void;
   customer?: Customer | null;
+  /** Called with the new customer's id right after a successful create (not on edit). */
+  onCreated?: (id: string) => void;
 }) {
   const router = useRouter();
   const [name, setName] = useState(customer?.name ?? "");
@@ -47,6 +50,7 @@ export function CustomerFormSheet({
     router.refresh();
     onClose();
     if (!customer) {
+      if (result.id) onCreated?.(result.id);
       setName("");
       setPhone("");
       setNote("");

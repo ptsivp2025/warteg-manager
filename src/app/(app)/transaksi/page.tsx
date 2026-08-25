@@ -43,7 +43,9 @@ export default async function TransaksiPage({
 
   let txQuery = supabase
     .from("transactions")
-    .select("id, total, payment_method, status, created_at, customers(name), transaction_items(*)")
+    .select(
+      "id, total, payment_method, status, created_at, customer_id, customers(name), transaction_items(*)"
+    )
     .eq("warung_id", warung.id)
     .order("created_at", { ascending: false })
     .limit(300);
@@ -51,20 +53,49 @@ export default async function TransaksiPage({
     txQuery = txQuery.gte("created_at", startISO);
   }
 
-  const [txRes, customersRes, menuRes] = await Promise.all([
-    txQuery,
+  const txRes = await txQuery;
+
+  // Recent customer ids diambil dari transaksi terbaru (sudah di-fetch
+  // di atas), lalu di-lookup langsung by id — supaya tidak bergantung
+  // pada daftar "customers" (yang di bawah ini dibatasi/limit) dan
+  // tetap benar walau pelanggan tsb di luar batas limit tersebut.
+  const recentCustomerIds: string[] = [];
+  for (const tx of txRes.data ?? []) {
+    const cid = (tx as { customer_id: string | null }).customer_id;
+    if (cid && !recentCustomerIds.includes(cid)) {
+      recentCustomerIds.push(cid);
+      if (recentCustomerIds.length >= 5) break;
+    }
+  }
+
+  const [customersRes, menuRes, recentCustomersRes] = await Promise.all([
     supabase
       .from("customers")
       .select("*")
       .eq("warung_id", warung.id)
-      .order("name"),
+      .order("name")
+      .limit(100),
     supabase
       .from("menu_items")
       .select("*")
       .eq("warung_id", warung.id)
       .order("category")
       .order("name"),
+    recentCustomerIds.length > 0
+      ? supabase
+          .from("customers")
+          .select("*")
+          .eq("warung_id", warung.id)
+          .in("id", recentCustomerIds)
+      : Promise.resolve({ data: [] }),
   ]);
+
+  const recentCustomersById = new Map(
+    (recentCustomersRes.data ?? []).map((c) => [c.id, c])
+  );
+  const recentCustomers = recentCustomerIds
+    .map((id) => recentCustomersById.get(id))
+    .filter((c): c is NonNullable<typeof c> => Boolean(c));
 
   return (
     <div className="flex flex-col gap-4">
@@ -90,6 +121,7 @@ export default async function TransaksiPage({
           <TransaksiClient
             transactions={(txRes.data as unknown as TransactionWithItems[]) ?? []}
             customers={customersRes.data ?? []}
+            recentCustomers={recentCustomers}
             menuItems={menuRes.data ?? []}
           />
         </Suspense>
