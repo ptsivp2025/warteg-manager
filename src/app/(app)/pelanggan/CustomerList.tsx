@@ -3,10 +3,10 @@
 import { EmptyState } from "@/components/ui/Card";
 import type { Customer } from "@/lib/types/database";
 import { formatRupiah } from "@/lib/utils";
-import { Pencil, Phone, Trash2 } from "lucide-react";
+import { Pencil, Phone, Search, Trash2, X } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { deleteCustomer } from "./actions";
 import { CustomerFormSheet } from "./CustomerFormSheet";
 
@@ -20,6 +20,17 @@ export function CustomerList({
   const router = useRouter();
   const [editing, setEditing] = useState<Customer | null>(null);
   const [pendingId, setPendingId] = useState<string | null>(null);
+  const [query, setQuery] = useState("");
+
+  const filtered = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return customers;
+    return customers.filter(
+      (c) =>
+        c.name.toLowerCase().includes(q) ||
+        (c.phone ?? "").toLowerCase().includes(q)
+    );
+  }, [customers, query]);
 
   if (customers.length === 0) {
     return (
@@ -40,8 +51,33 @@ export function CustomerList({
 
   return (
     <>
+      <div className="relative mb-2">
+        <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-faint" />
+        <input
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder="Cari nama atau nomor HP..."
+          className="h-11 w-full rounded-xl border border-border bg-surface pl-10 pr-9 text-[15px] text-ink placeholder:text-ink-faint outline-none focus:border-primary focus:ring-2 focus:ring-primary/15"
+        />
+        {query && (
+          <button
+            onClick={() => setQuery("")}
+            className="absolute right-2.5 top-1/2 flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-full text-ink-faint active:bg-black/5"
+            aria-label="Hapus pencarian"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        )}
+      </div>
+
+      {filtered.length === 0 ? (
+        <EmptyState
+          title="Tidak ditemukan"
+          description="Coba kata kunci lain."
+        />
+      ) : (
       <div className="flex flex-col gap-2">
-        {customers.map((c) => {
+        {filtered.map((c) => {
           const hutang = hutangMap[c.id] ?? 0;
           return (
             <div
@@ -87,6 +123,7 @@ export function CustomerList({
           );
         })}
       </div>
+      )}
 
       <CustomerFormSheet
         open={!!editing}
