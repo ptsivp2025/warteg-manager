@@ -2,9 +2,16 @@
 
 import { Button } from "@/components/ui/Button";
 import { EmptyState } from "@/components/ui/Card";
-import type { MenuItem } from "@/lib/types/database";
+import type { Ingredient, MenuItem, Unit } from "@/lib/types/database";
 import { cn, formatRupiah } from "@/lib/utils";
-import { PackagePlus, Pencil, Search, Trash2, X } from "lucide-react";
+import {
+  ChefHat,
+  PackagePlus,
+  Pencil,
+  Search,
+  Trash2,
+  X,
+} from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 import {
@@ -13,14 +20,24 @@ import {
   toggleMenuItemActive,
 } from "./actions";
 import { MenuFormSheet } from "./MenuFormSheet";
+import { RecipeSheet } from "./RecipeSheet";
 import { RestockSheet } from "./RestockSheet";
 
 const LOW_STOCK_THRESHOLD = 5;
 
-export function MenuList({ items }: { items: MenuItem[] }) {
+export function MenuList({
+  items,
+  ingredients,
+  units,
+}: {
+  items: MenuItem[];
+  ingredients: Ingredient[];
+  units: Unit[];
+}) {
   const router = useRouter();
   const [editing, setEditing] = useState<MenuItem | null>(null);
   const [restocking, setRestocking] = useState<MenuItem | null>(null);
+  const [recipeItem, setRecipeItem] = useState<MenuItem | null>(null);
   const [pendingId, setPendingId] = useState<string | null>(null);
   const [bulkPending, setBulkPending] = useState<string | null>(null);
   const [query, setQuery] = useState("");
@@ -216,6 +233,8 @@ export function MenuList({ items }: { items: MenuItem[] }) {
                   : item.is_active
                     ? "Tersedia"
                     : "Kosong";
+                const hasRecipe = item.hpp > 0;
+                const margin = item.price - item.hpp;
                 return (
                   <div
                     key={item.id}
@@ -259,7 +278,31 @@ export function MenuList({ items }: { items: MenuItem[] }) {
                           </span>
                         )}
                       </div>
+                      {hasRecipe && (
+                        <p
+                          className={cn(
+                            "mt-0.5 text-xs font-medium",
+                            margin < 0 ? "text-danger" : "text-primary"
+                          )}
+                        >
+                          HPP {formatRupiah(item.hpp)} · Margin{" "}
+                          {formatRupiah(margin)}
+                        </p>
+                      )}
                     </div>
+                    <button
+                      onClick={() => setRecipeItem(item)}
+                      className={cn(
+                        "flex h-9 w-9 shrink-0 items-center justify-center rounded-full active:bg-accent/20",
+                        hasRecipe
+                          ? "bg-accent-soft text-accent"
+                          : "bg-black/5 text-ink-soft"
+                      )}
+                      aria-label="Resep / HPP"
+                      title="Resep / HPP"
+                    >
+                      <ChefHat className="h-4 w-4" />
+                    </button>
                     <button
                       onClick={() => setRestocking(item)}
                       className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary-soft text-primary active:bg-primary/20"
@@ -297,6 +340,13 @@ export function MenuList({ items }: { items: MenuItem[] }) {
         open={!!restocking}
         onClose={() => setRestocking(null)}
         item={restocking}
+      />
+      <RecipeSheet
+        open={!!recipeItem}
+        onClose={() => setRecipeItem(null)}
+        item={recipeItem}
+        ingredients={ingredients}
+        units={units}
       />
     </>
   );

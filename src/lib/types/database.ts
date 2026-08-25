@@ -1,7 +1,23 @@
 export type PaymentMethod = "cash" | "qris" | "transfer" | "hutang";
 export type TransactionStatus = "paid" | "unpaid";
-export type MemberRole = "owner" | "staff";
+export type MemberRole =
+  | "owner"
+  | "staff"
+  | "admin"
+  | "manager"
+  | "supervisor"
+  | "cashier"
+  | "kitchen"
+  | "inventory"
+  | "finance";
 export type StockMovementType = "sale" | "restock" | "adjustment" | "waste";
+export type UnitCategory = "weight" | "volume" | "count";
+export type IngredientMovementType =
+  | "purchase"
+  | "consumption"
+  | "adjustment"
+  | "waste"
+  | "opening";
 
 export interface Database {
   public: {
@@ -62,6 +78,7 @@ export interface Database {
         Row: {
           id: string;
           warung_id: string;
+          outlet_id: string | null;
           name: string;
           phone: string | null;
           note: string | null;
@@ -70,6 +87,7 @@ export interface Database {
         Insert: {
           id?: string;
           warung_id: string;
+          outlet_id?: string | null;
           name: string;
           phone?: string | null;
           note?: string | null;
@@ -90,23 +108,29 @@ export interface Database {
         Row: {
           id: string;
           warung_id: string;
+          outlet_id: string | null;
           name: string;
           price: number;
           category: string;
           is_active: boolean;
           stock_quantity: number;
           stock_unit: string;
+          hpp: number;
+          hpp_updated_at: string | null;
           created_at: string;
         };
         Insert: {
           id?: string;
           warung_id: string;
+          outlet_id?: string | null;
           name: string;
           price?: number;
           category?: string;
           is_active?: boolean;
           stock_quantity?: number;
           stock_unit?: string;
+          hpp?: number;
+          hpp_updated_at?: string | null;
           created_at?: string;
         };
         Update: Partial<Database["public"]["Tables"]["menu_items"]["Insert"]>;
@@ -165,6 +189,7 @@ export interface Database {
         Row: {
           id: string;
           warung_id: string;
+          outlet_id: string | null;
           customer_id: string | null;
           payment_method: PaymentMethod;
           status: TransactionStatus;
@@ -175,6 +200,7 @@ export interface Database {
         Insert: {
           id?: string;
           warung_id: string;
+          outlet_id?: string | null;
           customer_id?: string | null;
           payment_method?: PaymentMethod;
           status?: TransactionStatus;
@@ -211,6 +237,7 @@ export interface Database {
           price: number;
           qty: number;
           subtotal: number;
+          cogs: number;
         };
         Insert: {
           id?: string;
@@ -220,6 +247,7 @@ export interface Database {
           price: number;
           qty: number;
           subtotal: number;
+          cogs?: number;
         };
         Update: Partial<
           Database["public"]["Tables"]["transaction_items"]["Insert"]
@@ -245,6 +273,7 @@ export interface Database {
         Row: {
           id: string;
           warung_id: string;
+          outlet_id: string | null;
           category: string;
           description: string | null;
           amount: number;
@@ -255,6 +284,7 @@ export interface Database {
         Insert: {
           id?: string;
           warung_id: string;
+          outlet_id?: string | null;
           category?: string;
           description?: string | null;
           amount?: number;
@@ -269,6 +299,319 @@ export interface Database {
             columns: ["warung_id"];
             isOneToOne: false;
             referencedRelation: "warungs";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      daily_sales_summary: {
+        Row: {
+          id: string;
+          warung_id: string;
+          summary_date: string;
+          gross_revenue: number;
+          transaction_count: number;
+          item_quantity: number;
+          cogs: number;
+          updated_at: string;
+        };
+        Insert: never;
+        Update: never;
+        Relationships: [
+          {
+            foreignKeyName: "daily_sales_summary_warung_id_fkey";
+            columns: ["warung_id"];
+            isOneToOne: false;
+            referencedRelation: "warungs";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      monthly_sales_summary: {
+        Row: {
+          id: string;
+          warung_id: string;
+          summary_month: string;
+          gross_revenue: number;
+          transaction_count: number;
+          item_quantity: number;
+          cogs: number;
+          updated_at: string;
+        };
+        Insert: never;
+        Update: never;
+        Relationships: [
+          {
+            foreignKeyName: "monthly_sales_summary_warung_id_fkey";
+            columns: ["warung_id"];
+            isOneToOne: false;
+            referencedRelation: "warungs";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      daily_expense_summary: {
+        Row: {
+          id: string;
+          warung_id: string;
+          summary_date: string;
+          category: string;
+          amount: number;
+          updated_at: string;
+        };
+        Insert: never;
+        Update: never;
+        Relationships: [
+          {
+            foreignKeyName: "daily_expense_summary_warung_id_fkey";
+            columns: ["warung_id"];
+            isOneToOne: false;
+            referencedRelation: "warungs";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      monthly_expense_summary: {
+        Row: {
+          id: string;
+          warung_id: string;
+          summary_month: string;
+          category: string;
+          amount: number;
+          updated_at: string;
+        };
+        Insert: never;
+        Update: never;
+        Relationships: [
+          {
+            foreignKeyName: "monthly_expense_summary_warung_id_fkey";
+            columns: ["warung_id"];
+            isOneToOne: false;
+            referencedRelation: "warungs";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      outlets: {
+        Row: {
+          id: string;
+          warung_id: string;
+          name: string;
+          address: string | null;
+          is_active: boolean;
+          is_default: boolean;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          warung_id: string;
+          name: string;
+          address?: string | null;
+          is_active?: boolean;
+          is_default?: boolean;
+          created_at?: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["outlets"]["Insert"]>;
+        Relationships: [
+          {
+            foreignKeyName: "outlets_warung_id_fkey";
+            columns: ["warung_id"];
+            isOneToOne: false;
+            referencedRelation: "warungs";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      member_outlet_access: {
+        Row: {
+          id: string;
+          member_id: string;
+          outlet_id: string;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          member_id: string;
+          outlet_id: string;
+          created_at?: string;
+        };
+        Update: Partial<
+          Database["public"]["Tables"]["member_outlet_access"]["Insert"]
+        >;
+        Relationships: [
+          {
+            foreignKeyName: "member_outlet_access_member_id_fkey";
+            columns: ["member_id"];
+            isOneToOne: false;
+            referencedRelation: "warung_members";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "member_outlet_access_outlet_id_fkey";
+            columns: ["outlet_id"];
+            isOneToOne: false;
+            referencedRelation: "outlets";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      units: {
+        Row: {
+          id: string;
+          code: string;
+          name: string;
+          category: UnitCategory;
+          to_base_factor: number;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          code: string;
+          name: string;
+          category: UnitCategory;
+          to_base_factor: number;
+          created_at?: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["units"]["Insert"]>;
+        Relationships: [];
+      };
+      ingredients: {
+        Row: {
+          id: string;
+          warung_id: string;
+          outlet_id: string | null;
+          name: string;
+          base_unit_id: string;
+          cost_per_base_unit: number;
+          current_stock: number;
+          min_stock: number;
+          is_active: boolean;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          warung_id: string;
+          outlet_id?: string | null;
+          name: string;
+          base_unit_id: string;
+          cost_per_base_unit?: number;
+          current_stock?: number;
+          min_stock?: number;
+          is_active?: boolean;
+          created_at?: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["ingredients"]["Insert"]>;
+        Relationships: [
+          {
+            foreignKeyName: "ingredients_warung_id_fkey";
+            columns: ["warung_id"];
+            isOneToOne: false;
+            referencedRelation: "warungs";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "ingredients_base_unit_id_fkey";
+            columns: ["base_unit_id"];
+            isOneToOne: false;
+            referencedRelation: "units";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      ingredient_stock_movements: {
+        Row: {
+          id: string;
+          warung_id: string;
+          ingredient_id: string;
+          quantity_change: number;
+          type: IngredientMovementType;
+          reference_id: string | null;
+          reason: string | null;
+          actor: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          warung_id: string;
+          ingredient_id: string;
+          quantity_change: number;
+          type: IngredientMovementType;
+          reference_id?: string | null;
+          reason?: string | null;
+          actor?: string | null;
+          created_at?: string;
+        };
+        Update: never;
+        Relationships: [
+          {
+            foreignKeyName: "ingredient_stock_movements_ingredient_id_fkey";
+            columns: ["ingredient_id"];
+            isOneToOne: false;
+            referencedRelation: "ingredients";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      recipes: {
+        Row: {
+          id: string;
+          warung_id: string;
+          menu_item_id: string;
+          notes: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          warung_id: string;
+          menu_item_id: string;
+          notes?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["recipes"]["Insert"]>;
+        Relationships: [
+          {
+            foreignKeyName: "recipes_menu_item_id_fkey";
+            columns: ["menu_item_id"];
+            isOneToOne: true;
+            referencedRelation: "menu_items";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      recipe_items: {
+        Row: {
+          id: string;
+          recipe_id: string;
+          ingredient_id: string;
+          quantity: number;
+          unit_id: string;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          recipe_id: string;
+          ingredient_id: string;
+          quantity: number;
+          unit_id: string;
+          created_at?: string;
+        };
+        Update: Partial<
+          Database["public"]["Tables"]["recipe_items"]["Insert"]
+        >;
+        Relationships: [
+          {
+            foreignKeyName: "recipe_items_recipe_id_fkey";
+            columns: ["recipe_id"];
+            isOneToOne: false;
+            referencedRelation: "recipes";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "recipe_items_ingredient_id_fkey";
+            columns: ["ingredient_id"];
+            isOneToOne: false;
+            referencedRelation: "ingredients";
             referencedColumns: ["id"];
           },
         ];
@@ -302,6 +645,40 @@ export interface Database {
         };
         Returns: number;
       };
+      rebuild_finance_summary: {
+        Args: { _warung_id: string; _from_date: string; _to_date: string };
+        Returns: undefined;
+      };
+      default_outlet_id: {
+        Args: { _warung_id: string };
+        Returns: string;
+      };
+      has_outlet_access: {
+        Args: { _outlet_id: string };
+        Returns: boolean;
+      };
+      convert_unit: {
+        Args: { _qty: number; _from_unit_id: string; _to_unit_id: string };
+        Returns: number;
+      };
+      calculate_recipe_cost: {
+        Args: { _menu_item_id: string };
+        Returns: number;
+      };
+      recompute_menu_hpp: {
+        Args: { _menu_item_id: string };
+        Returns: undefined;
+      };
+      adjust_ingredient_stock: {
+        Args: {
+          _warung_id: string;
+          _ingredient_id: string;
+          _quantity_change: number;
+          _type: string;
+          _reason: string | null;
+        };
+        Returns: number;
+      };
     };
     Enums: Record<string, never>;
     CompositeTypes: Record<string, never>;
@@ -317,3 +694,20 @@ export type TransactionItem =
 export type Expense = Database["public"]["Tables"]["expenses"]["Row"];
 export type StockMovement =
   Database["public"]["Tables"]["stock_movements"]["Row"];
+export type DailySalesSummary =
+  Database["public"]["Tables"]["daily_sales_summary"]["Row"];
+export type MonthlySalesSummary =
+  Database["public"]["Tables"]["monthly_sales_summary"]["Row"];
+export type DailyExpenseSummary =
+  Database["public"]["Tables"]["daily_expense_summary"]["Row"];
+export type MonthlyExpenseSummary =
+  Database["public"]["Tables"]["monthly_expense_summary"]["Row"];
+export type Outlet = Database["public"]["Tables"]["outlets"]["Row"];
+export type MemberOutletAccess =
+  Database["public"]["Tables"]["member_outlet_access"]["Row"];
+export type Unit = Database["public"]["Tables"]["units"]["Row"];
+export type Ingredient = Database["public"]["Tables"]["ingredients"]["Row"];
+export type IngredientStockMovement =
+  Database["public"]["Tables"]["ingredient_stock_movements"]["Row"];
+export type Recipe = Database["public"]["Tables"]["recipes"]["Row"];
+export type RecipeItem = Database["public"]["Tables"]["recipe_items"]["Row"];

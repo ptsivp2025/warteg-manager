@@ -59,12 +59,15 @@ export default async function DashboardPage() {
             icon={<ArrowDownCircle className="h-3.5 w-3.5" />}
           />
           <StatCard
-            label="Laba Hari Ini"
+            label="Operational Net Hari Ini"
             value={formatRupiah(data.labaHariIni)}
             tone="primary"
             icon={<Wallet className="h-3.5 w-3.5" />}
           />
         </div>
+        <p className="-mt-1 px-1 text-xs text-ink-faint">
+          Operational Net = Omzet − Belanja, bukan laba akuntansi resmi.
+        </p>
 
         <Link
           href="/transaksi?new=1"

@@ -1,5 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
-import { startOfTodayISO } from "@/lib/utils";
+import { startOfTodayISO, todayDateStr } from "@/lib/utils";
 
 export interface DashboardData {
   omzetHariIni: number;
@@ -11,22 +11,30 @@ export interface DashboardData {
   menuTerlaris: { name: string; qty: number }[];
 }
 
+/**
+ * Dibaca dari daily_sales_summary / daily_expense_summary (finance
+ * summary layer) — bukan scan seluruh transaksi hari ini. Summary
+ * di-maintain otomatis oleh trigger di setiap insert/update/delete
+ * transaksi & belanja (lihat migration 0005_finance_summary.sql).
+ */
 export async function getDashboardData(warungId: string): Promise<DashboardData> {
   const supabase = await createClient();
   const todayISO = startOfTodayISO();
+  const today = todayDateStr();
 
-  const [txToday, expensesToday, customerCount, unpaidTx, topItemsRes] =
+  const [dailySales, dailyExpenses, customerCount, unpaidTx, topItemsRes] =
     await Promise.all([
       supabase
-        .from("transactions")
-        .select("id, total")
+        .from("daily_sales_summary")
+        .select("gross_revenue, transaction_count")
         .eq("warung_id", warungId)
-        .gte("created_at", todayISO),
+        .eq("summary_date", today)
+        .maybeSingle(),
       supabase
-        .from("expenses")
+        .from("daily_expense_summary")
         .select("amount")
         .eq("warung_id", warungId)
-        .gte("expense_date", todayISO.slice(0, 10)),
+        .eq("summary_date", today),
       supabase
         .from("customers")
         .select("id", { count: "exact", head: true })
@@ -43,11 +51,9 @@ export async function getDashboardData(warungId: string): Promise<DashboardData>
         .gte("transactions.created_at", todayISO),
     ]);
 
-  const omzetHariIni = (txToday.data ?? []).reduce(
-    (sum, t) => sum + Number(t.total),
-    0
-  );
-  const belanjaHariIni = (expensesToday.data ?? []).reduce(
+  const omzetHariIni = Number(dailySales.data?.gross_revenue ?? 0);
+  const jumlahTransaksiHariIni = dailySales.data?.transaction_count ?? 0;
+  const belanjaHariIni = (dailyExpenses.data ?? []).reduce(
     (sum, e) => sum + Number(e.amount),
     0
   );
@@ -69,7 +75,7 @@ export async function getDashboardData(warungId: string): Promise<DashboardData>
     omzetHariIni,
     belanjaHariIni,
     labaHariIni: omzetHariIni - belanjaHariIni,
-    jumlahTransaksiHariIni: txToday.data?.length ?? 0,
+    jumlahTransaksiHariIni,
     jumlahCustomer: customerCount.count ?? 0,
     hutangBelumLunas,
     menuTerlaris,
