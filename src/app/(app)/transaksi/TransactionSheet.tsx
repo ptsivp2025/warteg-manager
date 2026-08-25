@@ -3,8 +3,17 @@
 import { Button } from "@/components/ui/Button";
 import { Sheet } from "@/components/ui/Sheet";
 import type { Customer, MenuItem, PaymentMethod } from "@/lib/types/database";
-import { formatRupiah } from "@/lib/utils";
-import { Banknote, CreditCard, HandCoins, Landmark, Minus, Plus, User } from "lucide-react";
+import { formatDateLong, formatRupiah, formatTime } from "@/lib/utils";
+import {
+  Banknote,
+  Check,
+  CreditCard,
+  HandCoins,
+  Landmark,
+  Minus,
+  Plus,
+  User,
+} from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 import { createTransaction, type CartLine } from "./actions";
@@ -15,6 +24,15 @@ const PAYMENTS: { value: PaymentMethod; label: string; icon: React.ElementType }
   { value: "transfer", label: "Transfer", icon: Landmark },
   { value: "hutang", label: "Hutang", icon: HandCoins },
 ];
+
+interface Receipt {
+  customerName: string;
+  lines: CartLine[];
+  total: number;
+  paymentMethod: PaymentMethod;
+  status: "paid" | "unpaid";
+  createdAt: Date;
+}
 
 export function TransactionSheet({
   open,
@@ -33,6 +51,7 @@ export function TransactionSheet({
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("cash");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [receipt, setReceipt] = useState<Receipt | null>(null);
 
   const categories = useMemo(() => {
     const map = new Map<string, MenuItem[]>();
@@ -47,6 +66,8 @@ export function TransactionSheet({
   const lines = Object.values(cart);
   const total = lines.reduce((sum, l) => sum + l.price * l.qty, 0);
   const totalQty = lines.reduce((sum, l) => sum + l.qty, 0);
+  const isHutang = paymentMethod === "hutang";
+  const selectedCustomer = customers.find((c) => c.id === customerId) ?? null;
 
   function addQty(item: MenuItem, delta: number) {
     setCart((prev) => {
@@ -67,17 +88,27 @@ export function TransactionSheet({
     });
   }
 
-  function reset() {
+  function resetForm() {
     setCart({});
     setCustomerId("");
     setPaymentMethod("cash");
     setError(null);
   }
 
+  function handleCloseSheet() {
+    resetForm();
+    setReceipt(null);
+    onClose();
+  }
+
   async function handleSave() {
     setError(null);
     if (lines.length === 0) {
       setError("Pilih minimal satu menu dulu.");
+      return;
+    }
+    if (isHutang && !customerId) {
+      setError("Transaksi hutang wajib memilih nama pelanggan.");
       return;
     }
     setLoading(true);
@@ -91,37 +122,129 @@ export function TransactionSheet({
       setError(result.error);
       return;
     }
+
     router.refresh();
-    reset();
-    onClose();
+    setReceipt({
+      customerName: selectedCustomer?.name ?? "Pelanggan Umum",
+      lines,
+      total,
+      paymentMethod,
+      status: paymentMethod === "hutang" ? "unpaid" : "paid",
+      createdAt: new Date(),
+    });
   }
 
+  function handleNewTransaction() {
+    resetForm();
+    setReceipt(null);
+  }
+
+  // ---------- RECEIPT / SUMMARY VIEW ----------
+  if (receipt) {
+    return (
+      <Sheet open={open} onClose={handleCloseSheet} title="Transaksi Berhasil">
+        <div className="flex flex-col gap-5 pb-2">
+          <div className="flex flex-col items-center gap-2 py-2 text-center">
+            <div
+              className={`flex h-14 w-14 items-center justify-center rounded-full ${
+                receipt.status === "paid" ? "bg-primary-soft text-primary" : "bg-danger-soft text-danger"
+              }`}
+            >
+              <Check className="h-7 w-7" />
+            </div>
+            <p className="text-lg font-extrabold text-ink">
+              {formatRupiah(receipt.total)}
+            </p>
+            <p
+              className={`rounded-full px-3 py-1 text-xs font-semibold ${
+                receipt.status === "paid"
+                  ? "bg-primary-soft text-primary"
+                  : "bg-danger-soft text-danger"
+              }`}
+            >
+              {receipt.status === "paid" ? "Lunas" : "Belum Lunas (Hutang)"}
+            </p>
+          </div>
+
+          <div className="rounded-2xl border border-dashed border-border p-4">
+            <div className="mb-3 flex items-center justify-between text-sm">
+              <span className="text-ink-soft">Pelanggan</span>
+              <span className="font-semibold text-ink">{receipt.customerName}</span>
+            </div>
+            <div className="mb-3 flex items-center justify-between text-sm">
+              <span className="text-ink-soft">Waktu</span>
+              <span className="font-semibold text-ink">
+                {formatDateLong(receipt.createdAt)}, {formatTime(receipt.createdAt)}
+              </span>
+            </div>
+            <div className="mb-3 flex items-center justify-between text-sm">
+              <span className="text-ink-soft">Pembayaran</span>
+              <span className="font-semibold text-ink">
+                {PAYMENTS.find((p) => p.value === receipt.paymentMethod)?.label}
+              </span>
+            </div>
+            <div className="my-3 border-t border-dashed border-border" />
+            <ul className="flex flex-col gap-1.5">
+              {receipt.lines.map((l) => (
+                <li key={l.menuItemId} className="flex justify-between text-sm">
+                  <span className="text-ink-soft">
+                    {l.qty}x {l.name}
+                  </span>
+                  <span className="tabular-nums text-ink">
+                    {formatRupiah(l.price * l.qty)}
+                  </span>
+                </li>
+              ))}
+            </ul>
+            <div className="my-3 border-t border-dashed border-border" />
+            <div className="flex justify-between text-base font-extrabold text-ink">
+              <span>Total</span>
+              <span className="tabular-nums">{formatRupiah(receipt.total)}</span>
+            </div>
+          </div>
+
+          {receipt.status === "unpaid" && (
+            <p className="rounded-xl bg-danger-soft px-4 py-2.5 text-sm text-danger">
+              Hutang tercatat atas nama <strong>{receipt.customerName}</strong>.
+              Lihat & tandai lunas kapan saja dari halaman Pelanggan.
+            </p>
+          )}
+
+          <div className="flex gap-2">
+            <Button variant="outline" className="flex-1" onClick={handleNewTransaction}>
+              Transaksi Baru
+            </Button>
+            <Button className="flex-1" onClick={handleCloseSheet}>
+              Selesai
+            </Button>
+          </div>
+        </div>
+      </Sheet>
+    );
+  }
+
+  // ---------- CART / MENU PICKER VIEW ----------
   return (
-    <Sheet
-      open={open}
-      onClose={() => {
-        reset();
-        onClose();
-      }}
-      title="Transaksi Baru"
-    >
+    <Sheet open={open} onClose={handleCloseSheet} title="Transaksi Baru">
       <div className="flex flex-col gap-5 pb-2">
         {/* Customer */}
         <div>
           <p className="mb-2 flex items-center gap-1.5 text-sm font-medium text-ink-soft">
-            <User className="h-4 w-4" /> Pelanggan (opsional)
+            <User className="h-4 w-4" /> Pelanggan {isHutang && <span className="text-danger">(wajib untuk hutang)</span>}
           </p>
           <div className="flex gap-2 overflow-x-auto no-scrollbar pb-1">
-            <button
-              onClick={() => setCustomerId("")}
-              className={`h-9 shrink-0 rounded-full px-3.5 text-sm font-medium ${
-                customerId === ""
-                  ? "bg-primary text-white"
-                  : "bg-primary-soft text-primary/70"
-              }`}
-            >
-              Umum
-            </button>
+            {!isHutang && (
+              <button
+                onClick={() => setCustomerId("")}
+                className={`h-9 shrink-0 rounded-full px-3.5 text-sm font-medium ${
+                  customerId === ""
+                    ? "bg-primary text-white"
+                    : "bg-primary-soft text-primary/70"
+                }`}
+              >
+                Umum
+              </button>
+            )}
             {customers.map((c) => (
               <button
                 key={c.id}
@@ -135,6 +258,11 @@ export function TransactionSheet({
                 {c.name}
               </button>
             ))}
+            {customers.length === 0 && (
+              <span className="py-2 text-sm text-ink-faint">
+                Belum ada pelanggan. Tambahkan di tab Pelanggan.
+              </span>
+            )}
           </div>
         </div>
 

@@ -2,13 +2,21 @@
 
 import { EmptyState } from "@/components/ui/Card";
 import type { Customer } from "@/lib/types/database";
+import { formatRupiah } from "@/lib/utils";
 import { Pencil, Phone, Trash2 } from "lucide-react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { deleteCustomer } from "./actions";
 import { CustomerFormSheet } from "./CustomerFormSheet";
 
-export function CustomerList({ customers }: { customers: Customer[] }) {
+export function CustomerList({
+  customers,
+  hutangMap,
+}: {
+  customers: Customer[];
+  hutangMap: Record<string, number>;
+}) {
   const router = useRouter();
   const [editing, setEditing] = useState<Customer | null>(null);
   const [pendingId, setPendingId] = useState<string | null>(null);
@@ -33,39 +41,51 @@ export function CustomerList({ customers }: { customers: Customer[] }) {
   return (
     <>
       <div className="flex flex-col gap-2">
-        {customers.map((c) => (
-          <div
-            key={c.id}
-            className="flex items-center gap-3 rounded-2xl border border-border bg-surface p-3"
-          >
-            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-primary-soft text-sm font-bold text-primary">
-              {c.name.charAt(0).toUpperCase()}
-            </div>
-            <div className="min-w-0 flex-1">
-              <p className="truncate text-[15px] font-semibold text-ink">{c.name}</p>
-              {c.phone && (
-                <p className="flex items-center gap-1 text-sm text-ink-soft">
-                  <Phone className="h-3.5 w-3.5" /> {c.phone}
-                </p>
-              )}
-            </div>
-            <button
-              onClick={() => setEditing(c)}
-              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-black/5 text-ink-soft active:bg-black/10"
-              aria-label="Ubah"
+        {customers.map((c) => {
+          const hutang = hutangMap[c.id] ?? 0;
+          return (
+            <div
+              key={c.id}
+              className="flex items-center gap-3 rounded-2xl border border-border bg-surface p-3"
             >
-              <Pencil className="h-4 w-4" />
-            </button>
-            <button
-              onClick={() => handleDelete(c)}
-              disabled={pendingId === c.id}
-              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-danger-soft text-danger active:bg-danger/20"
-              aria-label="Hapus"
-            >
-              <Trash2 className="h-4 w-4" />
-            </button>
-          </div>
-        ))}
+              <Link href={`/pelanggan/${c.id}`} className="flex min-w-0 flex-1 items-center gap-3">
+                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-primary-soft text-sm font-bold text-primary">
+                  {c.name.charAt(0).toUpperCase()}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-[15px] font-semibold text-ink">{c.name}</p>
+                  {c.phone ? (
+                    <p className="flex items-center gap-1 text-sm text-ink-soft">
+                      <Phone className="h-3.5 w-3.5" /> {c.phone}
+                    </p>
+                  ) : hutang > 0 ? null : (
+                    <p className="text-sm text-ink-faint">Lihat riwayat</p>
+                  )}
+                  {hutang > 0 && (
+                    <p className="mt-0.5 text-sm font-semibold text-danger">
+                      Hutang {formatRupiah(hutang)}
+                    </p>
+                  )}
+                </div>
+              </Link>
+              <button
+                onClick={() => setEditing(c)}
+                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-black/5 text-ink-soft active:bg-black/10"
+                aria-label="Ubah"
+              >
+                <Pencil className="h-4 w-4" />
+              </button>
+              <button
+                onClick={() => handleDelete(c)}
+                disabled={pendingId === c.id}
+                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-danger-soft text-danger active:bg-danger/20"
+                aria-label="Hapus"
+              >
+                <Trash2 className="h-4 w-4" />
+              </button>
+            </div>
+          );
+        })}
       </div>
 
       <CustomerFormSheet
