@@ -8,11 +8,13 @@ export function Sheet({
   open,
   onClose,
   title,
+  headerLeft,
   children,
 }: {
   open: boolean;
   onClose: () => void;
   title: string;
+  headerLeft?: React.ReactNode;
   children: React.ReactNode;
 }) {
   useEffect(() => {
@@ -36,8 +38,11 @@ export function Sheet({
         onClick={onClose}
       />
       <div className="relative z-10 flex max-h-[90dvh] w-full flex-col overflow-hidden rounded-t-3xl bg-surface pb-[var(--safe-bottom)] shadow-2xl animate-sheet-up sm:max-w-md sm:rounded-3xl">
-        <div className="flex items-center justify-between border-b border-border px-5 py-4">
-          <h2 className="text-lg font-bold text-ink">{title}</h2>
+        <div className="flex items-center justify-between gap-2 border-b border-border px-5 py-4">
+          <div className="flex min-w-0 items-center gap-1.5">
+            {headerLeft}
+            <h2 className="truncate text-lg font-bold text-ink">{title}</h2>
+          </div>
           <button
             onClick={onClose}
             aria-label="Tutup"

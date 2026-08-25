@@ -20,6 +20,7 @@ export interface TransactionWithItems {
   payment_method: PaymentMethod;
   status: "paid" | "unpaid";
   created_at: string;
+  customer_id: string | null;
   customers: { name: string } | null;
   transaction_items: TransactionItem[];
 }
@@ -42,10 +43,12 @@ type StatusFilter = (typeof STATUS_FILTERS)[number]["value"];
 export function TransaksiClient({
   transactions,
   customers,
+  recentCustomers,
   menuItems,
 }: {
   transactions: TransactionWithItems[];
   customers: Customer[];
+  recentCustomers: Customer[];
   menuItems: MenuItem[];
 }) {
   const router = useRouter();
@@ -289,6 +292,7 @@ export function TransaksiClient({
         open={open}
         onClose={() => setOpen(false)}
         customers={customers}
+        recentCustomers={recentCustomers}
         menuItems={menuItems}
       />
     </>

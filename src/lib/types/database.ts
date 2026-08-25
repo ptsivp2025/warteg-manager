@@ -236,6 +236,15 @@ export interface Database {
         Args: { _warung_id: string };
         Returns: boolean;
       };
+      create_transaction: {
+        Args: {
+          _warung_id: string;
+          _customer_id: string | null;
+          _payment_method: string;
+          _items: { menu_item_id: string; qty: number }[];
+        };
+        Returns: string;
+      };
     };
     Enums: Record<string, never>;
     CompositeTypes: Record<string, never>;
