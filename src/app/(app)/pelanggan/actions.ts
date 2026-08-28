@@ -1,7 +1,7 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
-import { getCurrentUserAndWarung } from "@/lib/warung";
+import { requireWarungAccess } from "@/lib/action-guard";
 import type { Customer } from "@/lib/types/database";
 import { revalidatePath } from "next/cache";
 
@@ -15,8 +15,10 @@ export async function createCustomer(input: {
   phone: string;
   note: string;
 }): Promise<CustomerFormState> {
-  const { warung } = await getCurrentUserAndWarung();
-  if (!warung) return { error: "Warung tidak ditemukan." };
+  const access = await requireWarungAccess("pelanggan");
+  if (!access.ok) return { error: access.error };
+  const { warung } = access;
+
   if (!input.name.trim()) return { error: "Nama pelanggan wajib diisi." };
 
   const supabase = await createClient();
@@ -41,6 +43,9 @@ export async function updateCustomer(
   id: string,
   input: { name: string; phone: string; note: string }
 ): Promise<CustomerFormState> {
+  const access = await requireWarungAccess("pelanggan");
+  if (!access.ok) return { error: access.error };
+
   if (!input.name.trim()) return { error: "Nama pelanggan wajib diisi." };
   const supabase = await createClient();
   const { error } = await supabase
@@ -59,21 +64,33 @@ export async function updateCustomer(
 }
 
 export async function deleteCustomer(id: string) {
+  const access = await requireWarungAccess("pelanggan");
+  if (!access.ok) return { error: access.error };
+
   const supabase = await createClient();
   await supabase.from("customers").delete().eq("id", id);
   revalidatePath("/pelanggan");
   revalidatePath("/transaksi");
+  return {};
 }
 
 /**
  * Server-side search dipakai oleh CustomerPicker di halaman transaksi.
  * Tidak dibatasi oleh limit daftar "browse" awal (100), jadi pelanggan
  * lama/di luar limit tetap bisa ditemukan lewat pencarian nama/HP.
+ *
+ * Gated by "transaksi" (not "pelanggan") on purpose: a cashier can't open
+ * the Pelanggan management page, but still needs to attach an existing
+ * customer to a sale — this is a read-only lookup inside the sales flow,
+ * not customer-list management.
  */
 export async function searchCustomers(query: string): Promise<Customer[]> {
-  const { warung } = await getCurrentUserAndWarung();
+  const access = await requireWarungAccess("transaksi");
+  if (!access.ok) return [];
+  const { warung } = access;
+
   const q = query.trim();
-  if (!warung || !q) return [];
+  if (!q) return [];
 
   const supabase = await createClient();
   const pattern = `%${q.replace(/[%_]/g, (m) => `\\${m}`)}%`;

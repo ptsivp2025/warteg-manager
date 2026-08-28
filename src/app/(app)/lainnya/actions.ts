@@ -2,6 +2,7 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentUserAndWarung } from "@/lib/warung";
+import { canAccess } from "@/lib/permissions";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
@@ -9,8 +10,11 @@ export async function updateWarungProfile(input: {
   name: string;
   address: string;
 }) {
-  const { warung } = await getCurrentUserAndWarung();
+  const { warung, role } = await getCurrentUserAndWarung();
   if (!warung) return { error: "Warung tidak ditemukan." };
+  if (!canAccess(role, "editWarung")) {
+    return { error: "Anda tidak punya akses untuk mengubah profil warteg." };
+  }
   if (!input.name.trim()) return { error: "Nama warteg wajib diisi." };
 
   const supabase = await createClient();
@@ -31,8 +35,11 @@ export async function updateWarungAppearance(input: {
   logoUrl?: string | null;
   backgroundUrl?: string | null;
 }) {
-  const { warung } = await getCurrentUserAndWarung();
+  const { warung, role } = await getCurrentUserAndWarung();
   if (!warung) return { error: "Warung tidak ditemukan." };
+  if (!canAccess(role, "appearance")) {
+    return { error: "Anda tidak punya akses untuk mengubah tampilan aplikasi." };
+  }
 
   const isValidHex = /^#[0-9a-fA-F]{6}$/.test(input.themeColor);
   if (!isValidHex) return { error: "Format warna tidak valid." };

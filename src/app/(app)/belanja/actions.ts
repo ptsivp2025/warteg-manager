@@ -1,7 +1,7 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
-import { getCurrentUserAndWarung } from "@/lib/warung";
+import { requireWarungAccess } from "@/lib/action-guard";
 import { revalidatePath } from "next/cache";
 
 export interface ExpenseFormState {
@@ -14,8 +14,10 @@ export async function createExpense(input: {
   amount: number;
   expenseDate: string;
 }): Promise<ExpenseFormState> {
-  const { warung } = await getCurrentUserAndWarung();
-  if (!warung) return { error: "Warung tidak ditemukan." };
+  const access = await requireWarungAccess("belanja");
+  if (!access.ok) return { error: access.error };
+  const { warung } = access;
+
   if (input.amount <= 0) return { error: "Jumlah belanja tidak valid." };
 
   const supabase = await createClient();
@@ -40,9 +42,13 @@ export async function createExpense(input: {
 }
 
 export async function deleteExpense(id: string) {
+  const access = await requireWarungAccess("belanja");
+  if (!access.ok) return { error: access.error };
+
   const supabase = await createClient();
   await supabase.from("expenses").delete().eq("id", id);
   revalidatePath("/belanja");
   revalidatePath("/dashboard");
   revalidatePath("/laporan");
+  return {};
 }

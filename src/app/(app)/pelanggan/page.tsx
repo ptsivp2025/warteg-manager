@@ -1,14 +1,16 @@
 import { PageHeader } from "@/components/PageHeader";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentUserAndWarung } from "@/lib/warung";
+import { requireAccess } from "@/lib/permissions";
 import { AddCustomerFab } from "./AddCustomerFab";
 import { CustomerList } from "./CustomerList";
 
 export const dynamic = "force-dynamic";
 
 export default async function PelangganPage() {
-  const { warung } = await getCurrentUserAndWarung();
+  const { warung, role } = await getCurrentUserAndWarung();
   if (!warung) return null;
+  requireAccess(role, "pelanggan");
 
   const supabase = await createClient();
 

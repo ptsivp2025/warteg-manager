@@ -1,7 +1,7 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
-import { getCurrentUserAndWarung } from "@/lib/warung";
+import { requireWarungAccess } from "@/lib/action-guard";
 import { revalidatePath } from "next/cache";
 
 export interface RecipeState {
@@ -17,8 +17,9 @@ export async function ensureRecipe(menuItemId: string): Promise<{
   recipeId?: string;
   error?: string;
 }> {
-  const { warung } = await getCurrentUserAndWarung();
-  if (!warung) return { error: "Warung tidak ditemukan." };
+  const access = await requireWarungAccess("menu");
+  if (!access.ok) return { error: access.error };
+  const { warung } = access;
 
   const supabase = await createClient();
   const { data: existing } = await supabase
@@ -45,6 +46,9 @@ export async function addRecipeItem(input: {
   quantity: number;
   unitId: string;
 }): Promise<RecipeState> {
+  const access = await requireWarungAccess("menu");
+  if (!access.ok) return { error: access.error };
+
   if (input.quantity <= 0) return { error: "Jumlah harus lebih dari 0." };
 
   const supabase = await createClient();
@@ -69,6 +73,9 @@ export async function updateRecipeItem(
   id: string,
   input: { quantity: number; unitId: string }
 ): Promise<RecipeState> {
+  const access = await requireWarungAccess("menu");
+  if (!access.ok) return { error: access.error };
+
   if (input.quantity <= 0) return { error: "Jumlah harus lebih dari 0." };
 
   const supabase = await createClient();
@@ -83,6 +90,9 @@ export async function updateRecipeItem(
 }
 
 export async function removeRecipeItem(id: string): Promise<RecipeState> {
+  const access = await requireWarungAccess("menu");
+  if (!access.ok) return { error: access.error };
+
   const supabase = await createClient();
   const { error } = await supabase.from("recipe_items").delete().eq("id", id);
   if (error) return { error: error.message };

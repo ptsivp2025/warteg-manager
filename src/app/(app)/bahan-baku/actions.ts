@@ -1,7 +1,7 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
-import { getCurrentUserAndWarung } from "@/lib/warung";
+import { requireWarungAccess } from "@/lib/action-guard";
 import { revalidatePath } from "next/cache";
 
 export interface IngredientFormState {
@@ -14,8 +14,10 @@ export async function createIngredient(input: {
   costPerBaseUnit: number;
   minStock: number;
 }): Promise<IngredientFormState> {
-  const { warung } = await getCurrentUserAndWarung();
-  if (!warung) return { error: "Warung tidak ditemukan." };
+  const access = await requireWarungAccess("bahan-baku");
+  if (!access.ok) return { error: access.error };
+  const { warung } = access;
+
   if (!input.name.trim()) return { error: "Nama bahan baku wajib diisi." };
   if (!input.baseUnitId) return { error: "Satuan wajib dipilih." };
   if (input.costPerBaseUnit < 0) return { error: "Harga tidak valid." };
@@ -44,6 +46,9 @@ export async function updateIngredient(
     minStock: number;
   }
 ): Promise<IngredientFormState> {
+  const access = await requireWarungAccess("bahan-baku");
+  if (!access.ok) return { error: access.error };
+
   if (!input.name.trim()) return { error: "Nama bahan baku wajib diisi." };
   if (!input.baseUnitId) return { error: "Satuan wajib dipilih." };
   if (input.costPerBaseUnit < 0) return { error: "Harga tidak valid." };
@@ -69,12 +74,19 @@ export async function updateIngredient(
 }
 
 export async function toggleIngredientActive(id: string, isActive: boolean) {
+  const access = await requireWarungAccess("bahan-baku");
+  if (!access.ok) return { error: access.error };
+
   const supabase = await createClient();
   await supabase.from("ingredients").update({ is_active: isActive }).eq("id", id);
   revalidatePath("/bahan-baku");
+  return {};
 }
 
 export async function deleteIngredient(id: string) {
+  const access = await requireWarungAccess("bahan-baku");
+  if (!access.ok) return { error: access.error };
+
   const supabase = await createClient();
   const { error } = await supabase.from("ingredients").delete().eq("id", id);
   revalidatePath("/bahan-baku");
@@ -94,8 +106,10 @@ export async function adjustIngredientStock(
   type: "purchase" | "adjustment" | "waste" | "opening",
   reason: string
 ): Promise<AdjustStockState> {
-  const { warung } = await getCurrentUserAndWarung();
-  if (!warung) return { error: "Warung tidak ditemukan." };
+  const access = await requireWarungAccess("bahan-baku");
+  if (!access.ok) return { error: access.error };
+  const { warung } = access;
+
   if (!Number.isFinite(quantityChange) || quantityChange === 0) {
     return { error: "Jumlah tidak valid." };
   }

@@ -1,6 +1,7 @@
 import { PageHeader } from "@/components/PageHeader";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentUserAndWarung } from "@/lib/warung";
+import { requireAccess } from "@/lib/permissions";
 import { ChevronLeft, Phone } from "lucide-react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -14,8 +15,9 @@ export default async function CustomerDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const { warung } = await getCurrentUserAndWarung();
+  const { warung, role } = await getCurrentUserAndWarung();
   if (!warung) return null;
+  requireAccess(role, "pelanggan");
 
   const supabase = await createClient();
 

@@ -1,20 +1,31 @@
 "use client";
 
 import { cn } from "@/lib/utils";
+import { canAccess, type PermissionKey } from "@/lib/permissions";
+import type { MemberRole } from "@/lib/types/database";
 import { LayoutGrid, Menu, Receipt, ShoppingBag, UtensilsCrossed } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
-const items = [
-  { href: "/dashboard", label: "Home", icon: LayoutGrid },
-  { href: "/transaksi", label: "Jualan", icon: Receipt },
-  { href: "/menu", label: "Menu", icon: UtensilsCrossed },
-  { href: "/laporan", label: "Laporan", icon: ShoppingBag },
-  { href: "/lainnya", label: "Lainnya", icon: Menu },
+// `key: null` means the item is always visible — "Lainnya" is where
+// profile + logout live, so every role needs it, even a cashier who has
+// no other page in the app.
+const items: {
+  href: string;
+  label: string;
+  icon: typeof LayoutGrid;
+  key: PermissionKey | null;
+}[] = [
+  { href: "/dashboard", label: "Home", icon: LayoutGrid, key: "dashboard" },
+  { href: "/transaksi", label: "Jualan", icon: Receipt, key: "transaksi" },
+  { href: "/menu", label: "Menu", icon: UtensilsCrossed, key: "menu" },
+  { href: "/laporan", label: "Laporan", icon: ShoppingBag, key: "laporan" },
+  { href: "/lainnya", label: "Lainnya", icon: Menu, key: null },
 ];
 
-export function BottomNav() {
+export function BottomNav({ role }: { role: MemberRole | null }) {
   const pathname = usePathname();
+  const visibleItems = items.filter((item) => !item.key || canAccess(role, item.key));
 
   return (
     <nav
@@ -22,7 +33,7 @@ export function BottomNav() {
       style={{ paddingBottom: "var(--safe-bottom)" }}
     >
       <ul className="mx-auto flex max-w-md items-stretch justify-between px-1">
-        {items.map(({ href, label, icon: Icon }) => {
+        {visibleItems.map(({ href, label, icon: Icon }) => {
           const active =
             pathname === href || pathname.startsWith(href + "/");
           return (

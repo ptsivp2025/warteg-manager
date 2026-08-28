@@ -2,6 +2,7 @@ import { PageHeader } from "@/components/PageHeader";
 import { Card, StatCard } from "@/components/ui/Card";
 import { getDashboardData } from "@/lib/data/dashboard";
 import { getCurrentUserAndWarung } from "@/lib/warung";
+import { requireAccess } from "@/lib/permissions";
 import { formatDateLong, formatRupiah } from "@/lib/utils";
 import { AlertTriangle, ArrowDownCircle, ArrowUpCircle, Plus, Users, Wallet } from "lucide-react";
 import Link from "next/link";
@@ -9,8 +10,9 @@ import Link from "next/link";
 export const dynamic = "force-dynamic";
 
 export default async function DashboardPage() {
-  const { warung } = await getCurrentUserAndWarung();
+  const { warung, role } = await getCurrentUserAndWarung();
   if (!warung) return null;
+  requireAccess(role, "dashboard");
 
   const data = await getDashboardData(warung.id);
 

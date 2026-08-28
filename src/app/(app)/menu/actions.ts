@@ -1,7 +1,7 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
-import { getCurrentUserAndWarung } from "@/lib/warung";
+import { requireWarungAccess } from "@/lib/action-guard";
 import { revalidatePath } from "next/cache";
 
 export interface MenuFormState {
@@ -15,8 +15,10 @@ export async function createMenuItem(input: {
   stockQuantity: number;
   stockUnit: string;
 }): Promise<MenuFormState> {
-  const { warung } = await getCurrentUserAndWarung();
-  if (!warung) return { error: "Warung tidak ditemukan." };
+  const access = await requireWarungAccess("menu");
+  if (!access.ok) return { error: access.error };
+  const { warung } = access;
+
   if (!input.name.trim()) return { error: "Nama menu wajib diisi." };
   if (input.price < 0) return { error: "Harga tidak valid." };
   if (input.stockQuantity < 0) return { error: "Stok tidak valid." };
@@ -46,6 +48,9 @@ export async function updateMenuItem(
   id: string,
   input: { name: string; price: number; category: string; stockUnit: string }
 ): Promise<MenuFormState> {
+  const access = await requireWarungAccess("menu");
+  if (!access.ok) return { error: access.error };
+
   if (!input.name.trim()) return { error: "Nama menu wajib diisi." };
   if (!input.stockUnit.trim()) return { error: "Satuan stok wajib diisi." };
   const supabase = await createClient();
@@ -75,8 +80,10 @@ export async function restockMenuItem(
   quantity: number,
   reason: string
 ): Promise<RestockState> {
-  const { warung } = await getCurrentUserAndWarung();
-  if (!warung) return { error: "Warung tidak ditemukan." };
+  const access = await requireWarungAccess("menu");
+  if (!access.ok) return { error: access.error };
+  const { warung } = access;
+
   if (!Number.isFinite(quantity) || quantity <= 0) {
     return { error: "Jumlah tambah stok tidak valid." };
   }
@@ -96,10 +103,14 @@ export async function restockMenuItem(
 }
 
 export async function toggleMenuItemActive(id: string, isActive: boolean) {
+  const access = await requireWarungAccess("menu");
+  if (!access.ok) return { error: access.error };
+
   const supabase = await createClient();
   await supabase.from("menu_items").update({ is_active: isActive }).eq("id", id);
   revalidatePath("/menu");
   revalidatePath("/transaksi");
+  return {};
 }
 
 /**
@@ -112,8 +123,9 @@ export async function bulkSetMenuAvailability(
   isActive: boolean,
   category?: string
 ) {
-  const { warung } = await getCurrentUserAndWarung();
-  if (!warung) return { error: "Warung tidak ditemukan." };
+  const access = await requireWarungAccess("menu");
+  if (!access.ok) return { error: access.error };
+  const { warung } = access;
 
   const supabase = await createClient();
   let query = supabase
@@ -131,8 +143,12 @@ export async function bulkSetMenuAvailability(
 }
 
 export async function deleteMenuItem(id: string) {
+  const access = await requireWarungAccess("menu");
+  if (!access.ok) return { error: access.error };
+
   const supabase = await createClient();
   await supabase.from("menu_items").delete().eq("id", id);
   revalidatePath("/menu");
   revalidatePath("/transaksi");
+  return {};
 }
