@@ -6,7 +6,7 @@ import { LainnyaMenu } from "./LainnyaMenu";
 export const dynamic = "force-dynamic";
 
 export default async function LainnyaPage() {
-  const { warung } = await getCurrentUserAndWarung();
+  const { warung, role } = await getCurrentUserAndWarung();
   if (!warung) return null;
 
   const supabase = await createClient();
@@ -18,7 +18,7 @@ export default async function LainnyaPage() {
     <div className="flex flex-col gap-4">
       <PageHeader eyebrow="Pengaturan" title="Lainnya" />
       <div className="px-5">
-        <LainnyaMenu warung={warung} email={user?.email ?? null} />
+        <LainnyaMenu warung={warung} email={user?.email ?? null} role={role} />
       </div>
     </div>
   );

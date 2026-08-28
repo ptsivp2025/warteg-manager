@@ -1,7 +1,7 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
-import { getCurrentUserAndWarung } from "@/lib/warung";
+import { requireWarungAccess, requireAnyWarungAccess } from "@/lib/action-guard";
 import type { PaymentMethod, TransactionStatus } from "@/lib/types/database";
 import { revalidatePath } from "next/cache";
 
@@ -39,8 +39,10 @@ export async function createTransaction(input: {
   paymentMethod: PaymentMethod;
   items: { menuItemId: string; qty: number }[];
 }): Promise<TransactionFormState> {
-  const { warung } = await getCurrentUserAndWarung();
-  if (!warung) return { error: "Warung tidak ditemukan." };
+  const access = await requireWarungAccess("transaksi");
+  if (!access.ok) return { error: access.error };
+  const { warung } = access;
+
   if (input.items.length === 0) {
     return { error: "Pilih minimal satu menu." };
   }
@@ -106,18 +108,26 @@ export async function createTransaction(input: {
   };
 }
 
+// Reachable both from /transaksi and from a customer's detail page under
+// /pelanggan, so either permission is enough — see requireAnyWarungAccess.
 export async function markTransactionPaid(id: string) {
+  const access = await requireAnyWarungAccess(["transaksi", "pelanggan"]);
+  if (!access.ok) return { error: access.error };
+
   const supabase = await createClient();
   await supabase.from("transactions").update({ status: "paid" }).eq("id", id);
   revalidatePath("/transaksi");
   revalidatePath("/dashboard");
   revalidatePath("/laporan");
   revalidatePath("/pelanggan");
+  return {};
 }
 
 export async function markAllPaidForCustomer(customerId: string) {
-  const { warung } = await getCurrentUserAndWarung();
-  if (!warung) return;
+  const access = await requireAnyWarungAccess(["transaksi", "pelanggan"]);
+  if (!access.ok) return { error: access.error };
+  const { warung } = access;
+
   const supabase = await createClient();
   await supabase
     .from("transactions")
@@ -129,12 +139,17 @@ export async function markAllPaidForCustomer(customerId: string) {
   revalidatePath("/dashboard");
   revalidatePath("/laporan");
   revalidatePath("/pelanggan");
+  return {};
 }
 
 export async function deleteTransaction(id: string) {
+  const access = await requireWarungAccess("transaksi");
+  if (!access.ok) return { error: access.error };
+
   const supabase = await createClient();
   await supabase.from("transactions").delete().eq("id", id);
   revalidatePath("/transaksi");
   revalidatePath("/dashboard");
   revalidatePath("/laporan");
+  return {};
 }

@@ -2,6 +2,7 @@ import { PageHeader } from "@/components/PageHeader";
 import { Card, StatCard } from "@/components/ui/Card";
 import { getReportData, type ReportRange } from "@/lib/data/laporan";
 import { getCurrentUserAndWarung } from "@/lib/warung";
+import { requireAccess } from "@/lib/permissions";
 import { formatRupiah } from "@/lib/utils";
 import { cn } from "@/lib/utils";
 import Link from "next/link";
@@ -20,8 +21,9 @@ export default async function LaporanPage({
 }: {
   searchParams: Promise<{ range?: string }>;
 }) {
-  const { warung } = await getCurrentUserAndWarung();
+  const { warung, role } = await getCurrentUserAndWarung();
   if (!warung) return null;
+  requireAccess(role, "laporan");
 
   const params = await searchParams;
   const range: ReportRange =

@@ -9,7 +9,7 @@ export default async function AppGroupLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const { userId, warung } = await getCurrentUserAndWarung();
+  const { userId, warung, role } = await getCurrentUserAndWarung();
 
   if (!userId) {
     redirect("/login");
@@ -37,10 +37,10 @@ export default async function AppGroupLayout({
 
   return (
     <div style={themeStyle} className="flex min-h-dvh w-full bg-bg md:justify-center">
-      <Sidebar warung={warung} />
+      <Sidebar warung={warung} role={role} />
       <div className="mx-auto flex min-h-dvh w-full max-w-md flex-1 flex-col md:mx-0 md:max-w-3xl md:px-8 md:py-6">
         <main className="flex-1 pb-28 md:pb-6">{children}</main>
-        <BottomNav />
+        <BottomNav role={role} />
       </div>
     </div>
   );

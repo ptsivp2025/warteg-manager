@@ -1,7 +1,8 @@
 "use client";
 
 import { cn } from "@/lib/utils";
-import type { Warung } from "@/lib/types/database";
+import { canAccess, type PermissionKey } from "@/lib/permissions";
+import type { MemberRole, Warung } from "@/lib/types/database";
 import {
   LayoutGrid,
   LogOut,
@@ -17,18 +18,32 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { signOut } from "@/app/(app)/lainnya/actions";
 
-const items = [
-  { href: "/dashboard", label: "Dashboard", icon: LayoutGrid },
-  { href: "/transaksi", label: "Transaksi", icon: Receipt },
-  { href: "/menu", label: "Menu", icon: UtensilsCrossed },
-  { href: "/pelanggan", label: "Pelanggan", icon: Users },
-  { href: "/belanja", label: "Belanja", icon: ShoppingBag },
-  { href: "/laporan", label: "Laporan", icon: MenuIcon },
-  { href: "/lainnya", label: "Pengaturan", icon: Settings },
+// `key: null` means the item is always visible (no permission gate) —
+// currently only "Pengaturan", since it's where profile + logout live.
+const items: {
+  href: string;
+  label: string;
+  icon: typeof LayoutGrid;
+  key: PermissionKey | null;
+}[] = [
+  { href: "/dashboard", label: "Dashboard", icon: LayoutGrid, key: "dashboard" },
+  { href: "/transaksi", label: "Transaksi", icon: Receipt, key: "transaksi" },
+  { href: "/menu", label: "Menu", icon: UtensilsCrossed, key: "menu" },
+  { href: "/pelanggan", label: "Pelanggan", icon: Users, key: "pelanggan" },
+  { href: "/belanja", label: "Belanja", icon: ShoppingBag, key: "belanja" },
+  { href: "/laporan", label: "Laporan", icon: MenuIcon, key: "laporan" },
+  { href: "/lainnya", label: "Pengaturan", icon: Settings, key: null },
 ];
 
-export function Sidebar({ warung }: { warung: Warung }) {
+export function Sidebar({
+  warung,
+  role,
+}: {
+  warung: Warung;
+  role: MemberRole | null;
+}) {
   const pathname = usePathname();
+  const visibleItems = items.filter((item) => !item.key || canAccess(role, item.key));
 
   return (
     <aside className="sticky top-0 hidden h-dvh w-64 shrink-0 flex-col border-r border-border bg-surface md:flex">
@@ -47,13 +62,13 @@ export function Sidebar({ warung }: { warung: Warung }) {
         )}
         <div className="min-w-0">
           <p className="truncate font-bold text-ink">{warung.name}</p>
-          <p className="text-xs text-ink-soft">Warteg Manager</p>
+          <p className="truncate text-xs text-ink-soft">Warteg Manager</p>
         </div>
       </div>
 
       <nav className="flex-1 px-3">
         <ul className="flex flex-col gap-1">
-          {items.map(({ href, label, icon: Icon }) => {
+          {visibleItems.map(({ href, label, icon: Icon }) => {
             const active = pathname === href || pathname.startsWith(href + "/");
             return (
               <li key={href}>

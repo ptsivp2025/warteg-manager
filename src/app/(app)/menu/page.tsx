@@ -1,14 +1,16 @@
 import { PageHeader } from "@/components/PageHeader";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentUserAndWarung } from "@/lib/warung";
+import { requireAccess } from "@/lib/permissions";
 import { AddMenuFab } from "./AddMenuFab";
 import { MenuList } from "./MenuList";
 
 export const dynamic = "force-dynamic";
 
 export default async function MenuPage() {
-  const { warung } = await getCurrentUserAndWarung();
+  const { warung, role } = await getCurrentUserAndWarung();
   if (!warung) return null;
+  requireAccess(role, "menu");
 
   const supabase = await createClient();
   const [{ data: items }, { data: ingredients }, { data: units }] =
